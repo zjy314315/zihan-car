@@ -1,0 +1,59 @@
+{
+  "app": {
+    "signingConfigs": [
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          "certpath": "C:\\Users\\21774\\.ohos\\config\\default_oh-ai-car-ros-app_xP26sOAf8bY8wIPpRp0aY87qoRMbY9kbGu59ABvSBwM=.cer",
+          "keyAlias": "debugKey",
+          "keyPassword": "0000001B7133C0CA1C7B41128C8C7E88BF6CE7F009C90E88FC7B00EEB92E30BBAAB406442AF8A6BFD6685A",
+          "profile": "C:\\Users\\21774\\.ohos\\config\\default_oh-ai-car-ros-app_xP26sOAf8bY8wIPpRp0aY87qoRMbY9kbGu59ABvSBwM=.p7b",
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "C:\\Users\\21774\\.ohos\\config\\default_oh-ai-car-ros-app_xP26sOAf8bY8wIPpRp0aY87qoRMbY9kbGu59ABvSBwM=.p12",
+          "storePassword": "0000001BF94B07B05C086E5CB6FDB10C598A2EE51EC2002B2EC1CB73A663E77D8F238B78C7E26BD7EC5E5F"
+        }
+      }
+    ],
+    "products": [
+      {
+        "name": "default",
+        "signingConfig": "default",
+        "compileSdkVersion": "6.1.0(23)",
+        "compatibleSdkVersion": "5.0.0(12)",
+        "runtimeOS": "HarmonyOS",
+        "targetSdkVersion": "6.1.0(23)"
+      }
+    ],
+    "buildModeSet": [
+      {
+        "name": "debug",
+        "buildOption": {
+          "debuggable": true
+        }
+      },
+      {
+        "name": "release",
+        "buildOption": {}
+      }
+    ]
+  },
+  "modules": [
+    {
+      "name": "entry",
+      "srcPath": "./entry",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Rocker",
+      "srcPath": "./Rocker"
+    }
+  ]
+}

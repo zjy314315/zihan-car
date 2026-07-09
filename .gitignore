@@ -1,0 +1,24 @@
+/node_modules
+/oh_modules
+/local.properties
+/.idea
+**/build
+/.hvigor
+.cxx
+/.clangd
+/.clang-format
+/.clang-tidy
+**/.test
+
+# DevEco Studio AppAnalyzer
+/.appanalyzer/
+
+# Claude Code local config
+/.claude/
+
+# npm config (user-specific registry)
+.npmrc
+
+# Build artifacts in doc
+doc/**/*.hap
+doc/**/*.abc
