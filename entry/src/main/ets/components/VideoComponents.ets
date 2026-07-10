@@ -10,20 +10,22 @@ export struct VideoComponents {
   controller: web_webview.WebviewController = new web_webview.WebviewController()
   public static port: number = 6500;
   public static ip: string = "192.168.1.11"
-  // 当前是否正在录制视频
+  @Prop showControls: boolean = true
+  @Prop videoWidth: Length = '300vp'
+  @Prop videoHeight: Length = '200vp'
   @State isRecording: boolean = false
 
   build() {
     Column() {
       RelativeContainer() {
-
         Web({
           src: this.getWebSrc(),
           controller: this.controller
         })
           .id("Video")
+          .width('100%')
+          .height('100%')
 
-        // 如果正在录制，显示小红点
         if (this.isRecording)
           RedRound()
             .id("RedRound")
@@ -31,51 +33,52 @@ export struct VideoComponents {
             .alignRules({
               bottom: { anchor: "__container__", align: VerticalAlign.Bottom },
               right: { anchor: "__container__", align: HorizontalAlign.End }
-            }).offset({
-            x: -30,
-            y: -30
-          })
+            })
+            .offset({
+              x: -30,
+              y: -30
+            })
       }
+      .width(this.videoWidth)
+      .height(this.videoHeight)
+      .backgroundColor(Color.Black)
+      .borderRadius('18vp')
 
-      .width('300vp')
-      .height('200vp')
+      if (this.showControls) {
+        Row({ space: '12vp' }) {
+          if (!this.isRecording) {
+            Button("拍摄")
+              .backgroundColor('#2563eb')
+              .fontColor('#ffffff')
+              .shadow(ButtonShadow)
+              .onClick(() => {
+                carApi.send(CarEncode.TakePhotosEncode());
+              })
+          }
 
-      Row() {
-        if (this.isRecording == false) {
-          // 如果不在录像，那么允许拍摄
-          Button("拍摄")
-            .backgroundColor($r('app.color.button_background'))
+          Button(this.isRecording ? "结束" : "录制")
+            .backgroundColor(this.isRecording ? '#dc2626' : '#10b981')
+            .fontColor('#ffffff')
             .shadow(ButtonShadow)
             .onClick(() => {
-              carApi.send(CarEncode.TakePhotosEncode());
+              if (this.isRecording) {
+                carApi.send(CarEncode.CloselRecordingEncode());
+              } else {
+                carApi.send(CarEncode.StartRecordingEncode());
+              }
+              this.isRecording = !this.isRecording;
             })
         }
-
-
-        Button(this.isRecording == false ? "录制" : "结束")
-          .backgroundColor($r('app.color.button_background'))
-          .shadow(ButtonShadow)
-          .onClick(() => {
-            if (this.isRecording == true) {
-              // 如果正在录制那么暂停视频
-              carApi.send(CarEncode.CloselRecordingEncode());
-            } else {
-              // 如果不在录制那么开始录制
-              carApi.send(CarEncode.StartRecordingEncode());
-            }
-            this.isRecording = !this.isRecording;
-          })
-
+        .padding({ top: '12vp' })
       }
-    }.justifyContent(FlexAlign.Center)
-
+    }
+    .justifyContent(FlexAlign.Center)
   }
 
   getWebSrc() {
     let v = `http://${VideoComponents.ip}:${VideoComponents.port}/index2`
     console.log(TAG, "getWebSrc()", v)
     return v
-
   }
 }
 
@@ -85,10 +88,8 @@ struct RedRound {
 
   aboutToAppear(): void {
     setInterval(() => {
-      // console.log('Hello, World!');
       this.isShow = !this.isShow;
     }, 1000);
-
   }
 
   build() {
@@ -100,7 +101,7 @@ struct RedRound {
         duration: 1200,
         curve: Curve.Friction,
         delay: 500,
-        iterations: -1, // 设置-1表示动画无限循环
+        iterations: -1,
       })
       .border({
         radius: "5vp"

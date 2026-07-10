@@ -106,7 +106,7 @@ class RockerDrawUtils {
       0 + tiltR, this.width - tiltR)
     let y = MathUtils.mapValue(this.tiltY,
       0, this.height,
-      0 + tiltR, this.width - tiltR)
+      0 + tiltR, this.height - tiltR)
 
     // @todo 这段代码在api9 HarmonyOS4.0（Mate50）下验证失败
     if (this.rockerOptions.getTiltStyle) {

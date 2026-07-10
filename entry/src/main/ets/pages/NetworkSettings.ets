@@ -1,7 +1,4 @@
-/**
- * 网络设置界面
- */
-import { TCPClientManager } from '../tcp/TCPClientManager'
+﻿import { TCPClientManager } from '../tcp/TCPClientManager'
 import { TCPClientSendUtils } from '../tcp/TCPClientSendUtils'
 import promptAction from '@ohos.promptAction'
 import router from '@ohos.router'
@@ -10,201 +7,159 @@ import { VideoComponents } from '../components/VideoComponents'
 import { ButtonShadow } from '../styles/styles'
 import { MyUtils } from '../utils/MyUtils'
 
-
 @Entry
 @Component
 struct NetworkSettings {
-  // @State message: string = 'Hello World';
-
   build() {
-    Column() {
-      // 标题
-      Stack() {
-
-
-      }
-
-      // 主体
+    Column({ space: '18vp' }) {
       Row() {
+        Button('返回')
+          .backgroundColor('#111827')
+          .fontColor('#ffffff')
+          .borderRadius('12vp')
+          .shadow(ButtonShadow)
+          .onClick(() => { router.back(); })
+          .padding({ left: '14vp', right: '14vp', top: '10vp', bottom: '10vp' })
+
+        Blank().width('14vp')
+
         Column() {
-          LoginComponent({
-            connectSuccessRun: () => {
-              // 如果连接成功 打开主页
-              router.pushUrl({ url: "pages/Index" })
-            },
-            connectfailRun: () => {
-              // @todo 如果在调试状态，连接失败也打开主页
-              if (MyUtils.isDebug)
-                router.pushUrl({ url: "pages/Index" })
-            }
-          })
-            .width('300vp')
-
+          Text('网络设置')
+            .fontSize('28fp')
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#111827')
+          Text('配置小车 IP 与视频端口，自动连接摄像头')
+            .fontSize('14fp')
+            .fontColor('#475569')
         }
-        .height('100%')
-        .width(0)
         .layoutWeight(1)
-        .justifyContent(FlexAlign.Center)
-
       }
-      .height('100%')
+      .width('100%')
+      .padding({ top: '24vp', left: '20vp', right: '20vp', bottom: '4vp' })
+
+      Scroll() {
+        Column({ space: '18vp' }) {
+          Column() {
+            LoginComponent({
+              connectSuccessRun: () => { router.pushUrl({ url: 'pages/Index' }) },
+              connectfailRun: () => { if (MyUtils.isDebug) router.pushUrl({ url: 'pages/Index' }) }
+            })
+              .width('100%')
+          }
+          .padding({ left: '20vp', right: '20vp', bottom: '20vp' })
+        }
+      }
     }
-    .backgroundColor($r('app.color.window_background'))
+    .width('100%')
+    .height('100%')
+    .backgroundColor('#ffffff')
   }
 }
 
 @Component
 struct LoginComponent {
-  // 控件大小
   TextWidth: Length = '80vp';
   FontSize: Length = '20fp'
   BlankWidth: Length = '10vp'
-  //
-  @State ip: string = "192.168.1.11"
-  @State tcpPort: string = "6000"
-  @State videoPort: string = "6500"
-  /**
-   * 连接成功运行
-   */
-  connectSuccessRun = () => {
-  }
-  /**
-   * 连接失败运行
-   */
-  connectfailRun = () => {
-  }
+  @State ip: string = '192.168.1.11'
+  @State tcpPort: string = '6000'
+  @State videoPort: string = '6500'
+  connectSuccessRun = () => {}
+  connectfailRun = () => {}
 
-  /**
-   * 数据初始化
-   */
   aboutToAppear(): void {
     this.readNetConfig();
   }
 
   build() {
-    Column() {
-      // IP配置
-      Row() {
-        Text("IP:")
+    Column({ space: '16vp' }) {
+      Row({ space: '12vp' }) {
+        Text('IP:')
           .width(this.TextWidth)
           .textAlign(TextAlign.End)
           .fontSize(this.FontSize)
-          .fontColor($r('app.color.button_text'))
-
+          .fontColor('#111827')
         Blank().width(this.BlankWidth)
-
         TextInput({ text: this.ip })
           .onChange((v) => this.ip = v)
           .layoutWeight(1)
-          .backgroundColor($r('app.color.edit_text_background'))
-      }.width('100%')
-      .LoginComponentLineStyle()
+          .backgroundColor('#f1f5f9')
+          .fontColor('#111827')
+          .padding({ left: '14vp', right: '14vp', top: '12vp', bottom: '12vp' })
+      }
 
-      // 端口号
-      Row() {
-        Text("Port:")
+      Row({ space: '12vp' }) {
+        Text('Port:')
           .width(this.TextWidth)
           .textAlign(TextAlign.End)
           .fontSize(this.FontSize)
-          .fontColor($r('app.color.button_text'))
-
+          .fontColor('#111827')
         Blank().width(this.BlankWidth)
-
         TextInput({ text: this.tcpPort })
           .onChange((v) => this.tcpPort = v)
           .layoutWeight(1)
-          .backgroundColor($r('app.color.edit_text_background'))
+          .backgroundColor('#f1f5f9')
+          .fontColor('#111827')
+          .padding({ left: '14vp', right: '14vp', top: '12vp', bottom: '12vp' })
       }
-      .width('100%')
-      .LoginComponentLineStyle()
 
-      // 视频
-      Row() {
-        Text("Video:")
+      Row({ space: '12vp' }) {
+        Text('Video:')
           .width(this.TextWidth)
           .textAlign(TextAlign.End)
           .fontSize(this.FontSize)
-          .fontColor($r('app.color.button_text'))
-
+          .fontColor('#111827')
         Blank().width(this.BlankWidth)
-
         TextInput({ text: this.videoPort })
           .onChange((v) => this.videoPort = v)
           .layoutWeight(1)
-          .backgroundColor($r('app.color.edit_text_background'))
-      }.width('100%')
-      .LoginComponentLineStyle()
+          .backgroundColor('#f1f5f9')
+          .fontColor('#111827')
+          .padding({ left: '14vp', right: '14vp', top: '12vp', bottom: '12vp' })
+      }
 
-      Button("连接").onClick(() => {
-
-        // 保存网络配置
-        this.saveNetConfig()
-        // 初始化TCP网络配置
-        this.initTcpConfig()
-
-        // 初始化视频网络配置
-        VideoComponents.ip = this.ip;
-        VideoComponents.port = Number.parseInt(this.videoPort)
-
-      })
+      Button('连接')
         .width('200vp')
-        .backgroundColor($r('app.color.button_background'))
+        .backgroundColor('#2563eb')
+        .fontColor('#ffffff')
         .shadow(ButtonShadow)
+        .borderRadius('16vp')
+        .onClick(() => {
+          this.saveNetConfig();
+          this.initTcpConfig();
+          VideoComponents.ip = this.ip;
+          VideoComponents.port = Number.parseInt(this.videoPort);
+        })
     }
+    .padding('24vp')
+    .backgroundColor('#f8fafc')
+    .borderRadius('24vp')
+    .border({ width: '1vp', color: '#e2e8f0' })
   }
 
-  /**
-   * 连接网络
-   */
   private async initTcpConfig() {
-
-    //
     let address = this.ip;
-    // TCP IP、端口定义
-    TCPClientManager.getInstance().initNetAddress({
-      address: address,
-      port: Number.parseInt(this.tcpPort)
-    });
-    // 创建TCP连接
+    TCPClientManager.getInstance().initNetAddress({ address: address, port: Number.parseInt(this.tcpPort) });
     let isConnect = await TCPClientManager.getInstance().connect();
     if (isConnect) {
-      // 如果连接成功
-      promptAction.showToast({ message: "连接成功" })
-      // 初始化心跳包等网络信息
+      promptAction.showToast({ message: '连接成功' });
       TCPClientSendUtils.getInstance().init();
-      // 触发连接成功回调
       this.connectSuccessRun();
     } else {
-
-      promptAction.showToast({ message: "连接失败，请检查信息" })
-      // 触发连接失败回调
+      promptAction.showToast({ message: '连接失败，请检查信息' });
       this.connectfailRun();
     }
   }
 
-  /**
-   * 从本地首选项读取偏好设置
-   */
   private readNetConfig() {
-    PreferencesUtils.getInstance().netUtils.getIP().then((v) => this.ip = v as string)
-    PreferencesUtils.getInstance().netUtils.getTcpPort().then((v) => this.tcpPort = v as string)
-    PreferencesUtils.getInstance().netUtils.getVideoPort().then((v) => this.videoPort = v as string)
+    PreferencesUtils.getInstance().netUtils.getIP().then((v) => this.ip = v as string);
+    PreferencesUtils.getInstance().netUtils.getTcpPort().then((v) => this.tcpPort = v as string);
+    PreferencesUtils.getInstance().netUtils.getVideoPort().then((v) => this.videoPort = v as string);
   }
 
-  /**
-   * 保存网络配置
-   */
   private async saveNetConfig() {
-    await PreferencesUtils.getInstance().netUtils.setIp(this.ip)
-    await PreferencesUtils.getInstance().netUtils.setTcpPort(this.tcpPort)
-    await PreferencesUtils.getInstance().netUtils.setVideoPort(this.videoPort)
+    await PreferencesUtils.getInstance().netUtils.setIp(this.ip);
+    await PreferencesUtils.getInstance().netUtils.setTcpPort(this.tcpPort);
+    await PreferencesUtils.getInstance().netUtils.setVideoPort(this.videoPort);
   }
-}
-
-/**
- * 行样式
- */
-@Styles
-function LoginComponentLineStyle() {
-  .margin('5vp')
 }

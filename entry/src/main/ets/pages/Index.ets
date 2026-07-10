@@ -1,45 +1,62 @@
-import router from '@ohos.router';
+﻿import router from '@ohos.router';
 import { ButtonShadow } from '../styles/styles';
 
 @Entry
 @Component
 struct Index {
-  @State message: string = 'Hello World';
-
   build() {
     Column() {
-      Scroll() {
-        Row({ space: '30vp' }) {
-          // this.newLocalBuilder
-          ItemButton({
-            text: "麦科朗姆",
-            icon:$r('app.media.tire'),
-            event: () => {
-              router.pushUrl({
-                url: 'pages/MecanumWheel',
-              })
-            }
-          })
-            .width('300vp')
-            .height('100%')
-
-          ItemButton({
-            text: "单独控制",
-            icon:$r('app.media.vector'),
-            event: () => {
-              router.pushUrl({ url: 'pages/RemoteControl', })
-            }
-          })
-            .width('300vp')
-            .height('100%')
-        }
-        .height('60%')
+      Column() {
+        Text('智行小车控制中心')
+          .fontSize('32fp')
+          .fontWeight(FontWeight.Bold)
+          .fontColor('#111827')
+        Text('选择功能，快速切换到控制、网络或人脸识别界面')
+          .fontSize('16fp')
+          .fontColor('#475569')
+          .margin({ top: '8vp' })
       }
-      .scrollable(ScrollDirection.Horizontal) // 滚动方向纵向
-      .height('100%')
+      .padding({ top: '28vp', bottom: '24vp', left: '20vp', right: '20vp' })
+
+      Row({ space: '16vp' }) {
+        ItemButton({
+          text: "麦科朗姆",
+          icon: $r('app.media.tire'),
+          event: () => {
+            router.pushUrl({ url: 'pages/MecanumWheel' })
+          }
+        })
+          .width('280vp')
+          .height('220vp')
+
+        ItemButton({
+          text: "单独控制",
+          icon: $r('app.media.vector'),
+          event: () => {
+            router.pushUrl({ url: 'pages/RemoteControl' })
+          }
+        })
+          .width('280vp')
+          .height('220vp')
+      }
+      .padding({ left: '20vp', right: '20vp' })
+
+      Row({ space: '16vp' }) {
+        ItemButton({
+          text: "人脸识别",
+          icon: $r('app.media.app_icon'),
+          event: () => {
+            router.pushUrl({ url: 'pages/FaceRecognition' })
+          }
+        })
+          .width('280vp')
+          .height('220vp')
+      }
+      .padding({ left: '20vp', right: '20vp', top: '16vp' })
     }
     .width('100%')
-    .backgroundColor($r('app.color.window_background'))
+    .height('100%')
+    .backgroundColor('#ffffff')
   }
 }
 
@@ -53,26 +70,26 @@ struct ItemButton {
   build() {
     Stack() {
       Button({ type: ButtonType.Normal, stateEffect: true }) {
-        Column({space:"10vp"}) {
-          // 图标
+        Column({ space: '16vp' }) {
           Image(this.icon)
-            .width('130vp')
-            .height('130vp')
-          // 文字
+            .width('100vp')
+            .height('100vp')
           Text(this.text)
-            .fontColor($r('app.color.text'))
-            .fontSize($r("app.float.index_text_size"))
+            .fontColor('#0f172a')
+            .fontSize('18fp')
+            .fontWeight(FontWeight.Medium)
         }
-
+        .padding('18vp')
       }
       .width('100%')
       .height('100%')
       .onClick(() => {
         this.event()
       })
-      .backgroundColor($r('app.color.button_background'))
+      .backgroundColor('#f8fafc')
+      .border({ width: '1vp', color: '#e2e8f0' })
       .shadow(ButtonShadow)
-      .borderRadius($r('app.float.index_button_radius'))
+      .borderRadius('24vp')
     }
   }
 }

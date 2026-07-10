@@ -14,7 +14,7 @@ struct RockerComponent {
 
   // @Prop public getBackgroundStyle?: GetImageBitmap
   /**摇杆绘制选项*/
-  rockerOptions!: iRockerOptions
+  rockerOptions?: iRockerOptions
   // 内部接口
 
   // 用来配置CanvasRenderingContext2D对象的参数，包括是否开启抗锯齿，true表明开启抗锯齿。
@@ -30,7 +30,9 @@ struct RockerComponent {
 
   aboutToAppear(): void {
 
-    this.drawUtils.init(this.rockerOptions)
+    if (this.rockerOptions) {
+      this.drawUtils.init(this.rockerOptions)
+    }
   }
 
   build() {
@@ -111,7 +113,7 @@ struct RockerComponent {
     tiltY *= -1;
 
     // 如果配置了手指触摸代码，那么进行触摸事件@
-    if (this.rockerOptions.tiltEvent) {
+    if (this.rockerOptions?.tiltEvent) {
       this.rockerOptions.tiltEvent(tiltX, tiltY, event)
     }
   }

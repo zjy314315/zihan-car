@@ -1,101 +1,122 @@
-/**
- * 遥控界面
- */
+﻿import router from '@ohos.router';
 import { carApi } from '../CarUtill/CarApi';
 import { CarEncode } from '../CarUtill/CarEncode';
-import { CarDirection } from '../CarUtill/CarEnum';
 import { CarBtnComponents } from '../components/CarBtnComponents';
 import { CarRockerComponents } from '../components/CarRockerComponents';
 import { VideoComponents } from '../components/VideoComponents';
+import { ButtonShadow } from '../styles/styles';
 
 @Entry
 @Component
 struct RemoteControl {
-  @State message: string = 'Hello World';
-  /**当前控制模式*/
   @State nowCtrlModel: CtrlModel = CtrlModel.Button
-  /**控制文本列表*/
-  ctrlTextTextList: string[] = ["按钮", "遥杆"]
-  /**控制模式列表*/
+  ctrlTextTextList: string[] = ['按钮', '遥杆']
   ctrlModeList: CtrlModel[] = [CtrlModel.Button, CtrlModel.Rocker]
 
   build() {
-    Row() {
-      RelativeContainer() {
+    Column({ space: '18vp' }) {
+      Row() {
+        Button('返回')
+          .backgroundColor('#111827')
+          .fontColor('#ffffff')
+          .borderRadius('12vp')
+          .shadow(ButtonShadow)
+          .onClick(() => { router.back(); })
+          .padding({ left: '14vp', right: '14vp', top: '10vp', bottom: '10vp' })
+
+        Blank().width('14vp')
+
         Column() {
-          ForEach(this.ctrlTextTextList, (item: string, index: number) => {
-            MyTab({
-              // 如果当前控制模式为为当前组件所属的控制模式，那么状态选中
-              state: this.nowCtrlModel == this.ctrlModeList[index],
-              text: item
-            }).onClick(() => {
-              // 当受到点击时将当前控制模式置为当前组件所属的控制模式
-              state: this.nowCtrlModel = this.ctrlModeList[index]
-            })
-
-          }, (item: string) => item)
+          Text('单独控制')
+            .fontSize('28fp')
+            .fontWeight(FontWeight.Bold)
+            .fontColor('#111827')
+          Text('小车控制与摄像头画面统一风格展示')
+            .fontSize('14fp')
+            .fontColor('#475569')
         }
-        .id("tabs")
-        .alignRules({
-          left: { anchor: "__container__", align: HorizontalAlign.Start },
-          center: { anchor: "__container__", align: VerticalAlign.Center }
-        })
-
-        Stack() {
-
-          // 操控按钮
-          CarBtnComponents()
-            .border({ width: 1, color: Color.Black })
-            .visibility(//如果选中控制模式为当前组件的控制模式，那么显示
-              this.nowCtrlModel == CtrlModel.Button ?
-              Visibility.Visible :
-              Visibility.None)
-
-
-          // 遥感控制
-          CarRockerComponents()// .width('210vp')
-            // .height('210vp')
-            .border({ width: 1, color: Color.Black })
-            .visibility(//如果选中控制模式为当前组件的控制模式，那么显示
-              this.nowCtrlModel == CtrlModel.Rocker ?
-              Visibility.Visible :
-              Visibility.None)
-        }
-        .width('210vp')
-        .height('210vp')
-        .id("ctrl")
-        .alignRules({
-          center: { anchor: "__container__", align: VerticalAlign.Center },
-          middle: { anchor: "__container__", align: HorizontalAlign.Center }
-        })
-
+        .layoutWeight(1)
       }
-      .width(0)
-      .layoutWeight(1)
-      .height('100%')
+      .width('100%')
+      .padding({ top: '24vp', left: '20vp', right: '20vp', bottom: '4vp' })
 
-      Column() {
-        // 视频播放组件
-        VideoComponents()
-        Row() {
-          Checkbox() {
-            Text("自动循迹")
-          }.onChange((value: boolean) => {
-            if (value) {
-              carApi.send(CarEncode.TrackingOpenEncode());
-            } else {
-              carApi.send(CarEncode.TrackingCloseEncode());
+      Scroll() {
+        Row({ space: '18vp' }) {
+          Column({ space: '18vp' }) {
+            Row({ space: '12vp' }) {
+              ForEach(this.ctrlTextTextList, (item: string, index: number) => {
+                MyTab({
+                  state: this.nowCtrlModel == this.ctrlModeList[index],
+                  text: item
+                }).onClick(() => { state: this.nowCtrlModel = this.ctrlModeList[index] })
+              }, (item: string) => item)
             }
-          })
+            .padding('16vp')
+            .backgroundColor('#f8fafc')
+            .borderRadius('20vp')
+            .border({ width: '1vp', color: '#e2e8f0' })
+
+            Stack() {
+              CarBtnComponents()
+                .visibility(this.nowCtrlModel == CtrlModel.Button ? Visibility.Visible : Visibility.None)
+              CarRockerComponents()
+                .visibility(this.nowCtrlModel == CtrlModel.Rocker ? Visibility.Visible : Visibility.None)
+            }
+            .width('100%')
+            .height('320vp')
+            .padding('18vp')
+            .backgroundColor('#f8fafc')
+            .borderRadius('20vp')
+            .border({ width: '1vp', color: '#e2e8f0' })
+          }
+          .width('0vp')
+          .layoutWeight(1)
+
+          Column({ space: '18vp' }) {
+            Column({ space: '14vp' }) {
+              Text('摄像头画面')
+                .fontSize('16fp')
+                .fontWeight(FontWeight.Bold)
+                .fontColor('#111827')
+
+              VideoComponents({ showControls: true, videoWidth: '100%', videoHeight: '320vp' })
+                .borderRadius('18vp')
+            }
+            .width('100%')
+            .padding('18vp')
+            .backgroundColor('#f8fafc')
+            .borderRadius('20vp')
+            .border({ width: '1vp', color: '#e2e8f0' })
+
+            Column({ space: '12vp' }) {
+              Row() {
+                Checkbox() {
+                  Text('自动循迹')
+                    .fontSize('14fp')
+                    .fontColor('#111827')
+                }.onChange((value: boolean) => {
+                  if (value) {
+                    carApi.send(CarEncode.TrackingOpenEncode());
+                  } else {
+                    carApi.send(CarEncode.TrackingCloseEncode());
+                  }
+                })
+              }
+            }
+            .padding('18vp')
+            .backgroundColor('#ffffff')
+            .borderRadius('20vp')
+            .border({ width: '1vp', color: '#e2e8f0' })
+          }
+          .width('0vp')
+          .layoutWeight(1)
         }
+        .padding({ left: '20vp', right: '20vp', bottom: '20vp' })
       }
-      .width(0)
-      .height('100%')
-      .layoutWeight(1)
-      .justifyContent(FlexAlign.Center)
     }
+    .width('100%')
     .height('100%')
-    .backgroundColor($r('app.color.window_background'))
+    .backgroundColor('#ffffff')
   }
 }
 
@@ -104,34 +125,20 @@ enum CtrlModel {
   Rocker = 1,
 }
 
-// 标签
 @Component
 struct MyTab {
   @Prop state: boolean = false;
-  @Prop text: string = "hello";
-  /**选中颜色*/
-  trueColor: string|Resource = $r('app.color.button_select_background')
-  /**未被选中颜色*/
-  falseColor: string|Resource = $r('app.color.button_background')
+  @Prop text: string = 'hello';
 
   build() {
     Stack() {
       Text(this.text)
-        .width('20vp')
-        .fontSize('20fp')
+        .width('60vp')
+        .fontSize('18fp')
+        .fontColor(this.state ? '#111827' : '#475569')
     }
-    .backgroundColor(this.state ? this.trueColor : this.falseColor)
-    .border({
-      radius: {
-        topRight: '15vp',
-        bottomRight: '15vp'
-      }
-    })
-    .padding({
-      left: '15vp',
-      right: '15vp',
-      top: '10vp',
-      bottom: '10vp',
-    })
+    .backgroundColor(this.state ? '#e0f2fe' : '#f8fafc')
+    .borderRadius('18vp')
+    .padding({ left: '16vp', right: '16vp', top: '10vp', bottom: '10vp' })
   }
 }

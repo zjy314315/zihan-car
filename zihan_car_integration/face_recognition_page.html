@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>iCar - 人脸识别控制</title>
+  <style>body{font-family:Arial,Helvetica,sans-serif;margin:16px;background:#0b1220;color:#e6eef8}input,button{padding:8px;border-radius:6px;border:1px solid #2b3440}button{cursor:pointer}pre{background:#041024;padding:12px;border-radius:8px;color:#dbeafe;white-space:pre-wrap}</style>
+</head>
+<body>
+  <h2>iCar 人脸识别控制</h2>
+  <p>请按照说明将此页面放到你的项目静态页面中。</p>
+
+  <div>
+    <label>姓名（用于注册）：</label>
+    <input id="name" placeholder="张三" />
+    <button onclick="registerFace()">注册人脸</button>
+  </div>
+
+  <div style="margin-top:12px;">
+    <button onclick="startRec()">开始识别</button>
+    <button onclick="stopRec()">停止识别</button>
+    <button onclick="getStatus()">查看状态</button>
+    <button onclick="getResult()">刷新结果</button>
+  </div>
+
+  <h3>当前识别结果</h3>
+  <pre id="result">等待结果...</pre>
+
+<script>
+// Integration options:
+// - Option A (recommended): Put this page inside your zihan-car web app and set PROXY_BASE to "/api/face" and implement a backend proxy to forward requests to the car's face service.
+// - Option B: Set PROXY_BASE to the direct car IP, e.g. "http://10.231.195.242:5001" so page calls the face service directly.
+
+const PROXY_BASE = '/api/face'; // change to car IP like 'http://10.231.195.242:5001' if calling directly
+
+async function registerFace(){
+  const name = document.getElementById('name').value.trim();
+  if(!name){ alert('请输入姓名'); return; }
+  const r = await fetch(PROXY_BASE + '/register', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({name})});
+  const d = await r.json();
+  document.getElementById('result').innerText = JSON.stringify(d, null, 2);
+}
+async function startRec(){ const r = await fetch(PROXY_BASE + '/start', {method:'POST'}); document.getElementById('result').innerText = JSON.stringify(await r.json(),null,2); }
+async function stopRec(){ const r = await fetch(PROXY_BASE + '/stop', {method:'POST'}); document.getElementById('result').innerText = JSON.stringify(await r.json(),null,2); }
+async function getStatus(){ const r = await fetch(PROXY_BASE + '/status'); document.getElementById('result').innerText = JSON.stringify(await r.json(),null,2); }
+async function getResult(){ const r = await fetch(PROXY_BASE + '/result'); document.getElementById('result').innerText = JSON.stringify(await r.json(),null,2); }
+setInterval(()=>{ getResult(); },1000);
+</script>
+</body>
+</html>
