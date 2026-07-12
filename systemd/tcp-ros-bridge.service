@@ -1,0 +1,14 @@
+[Unit]
+Description=Zihan Car TCP to ROS bridge
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/zihan-car/bridge.env
+ExecStart=/bin/bash -lc 'if [ -n "$ROS_SETUP" ] && [ -f "$ROS_SETUP" ]; then source "$ROS_SETUP"; fi; exec /usr/bin/python3 "$ZIHAN_CAR_DIR/tcp_ros_bridge.py" "$TCP_ROS_PORT"'
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
