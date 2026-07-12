@@ -46,7 +46,7 @@ struct FaceRecognition {
   }
 
   build() {
-    Column({ space: '18vp' }) {
+    Column({ space: '12vp' }) {
       Row() {
         Button('返回')
           .backgroundColor('#111827')
@@ -55,186 +55,179 @@ struct FaceRecognition {
           .shadow(ButtonShadow)
           .onClick(() => { router.back(); })
           .padding({ left: '14vp', right: '14vp', top: '10vp', bottom: '10vp' })
-
-        Blank().width('14vp')
-
-        Column() {
-          Text('人脸识别')
-            .fontSize('28fp')
-            .fontWeight(FontWeight.Bold)
-            .fontColor('#111827')
-          Text('摄像头在左侧，操作与输出在右侧，结果即时显示')
-            .fontSize('14fp')
-            .fontColor('#475569')
-        }
-        .layoutWeight(1)
       }
       .width('100%')
-      .padding({ top: '24vp', left: '20vp', right: '20vp', bottom: '4vp' })
+      .padding({ top: '24vp', left: '16vp', right: '16vp', bottom: '4vp' })
 
       Scroll() {
-        Row({ space: '18vp' }) {
-          Column({ space: '18vp' }) {
-            Column({ space: '14vp' }) {
+        Row({ space: '12vp' }) {
+          Column({ space: '12vp' }) {
+            Column({ space: '10vp' }) {
               Text('摄像头画面')
-                .fontSize('16fp')
+                .fontSize('15fp')
                 .fontWeight(FontWeight.Bold)
                 .fontColor('#111827')
 
-              VideoComponents({ showControls: false, videoWidth: '100%', videoHeight: '340vp' })
+              VideoComponents({ showControls: false, videoWidth: '100%', videoHeight: '100%' })
                 .borderRadius('18vp')
             }
             .width('100%')
-            .padding('18vp')
+            .padding('12vp')
             .backgroundColor('#f8fafc')
-            .borderRadius('24vp')
+            .borderRadius('20vp')
             .border({ width: '1vp', color: '#e2e8f0' })
 
-            Column({ space: '10vp' }) {
+            Column({ space: '8vp' }) {
               Text('运行状态')
-                .fontSize('16fp')
+                .fontSize('15fp')
                 .fontWeight(FontWeight.Bold)
                 .fontColor('#111827')
               Text(this.connectionState)
-                .fontSize('14fp')
+                .fontSize('13fp')
                 .fontColor(this.connectionState.includes('已连接') ? '#16a34a' : '#d97706')
               Text(this.isRecognizing ? '识别已启动，摄像头实时采集中' : '尚未识别，等待自动或手动启动')
-                .fontSize('14fp')
+                .fontSize('13fp')
                 .fontColor('#475569')
               Text(this.statusText)
-                .fontSize('14fp')
+                .fontSize('13fp')
                 .fontColor('#475569')
             }
             .width('100%')
-            .padding('18vp')
+            .padding('12vp')
             .backgroundColor('#ffffff')
-            .borderRadius('24vp')
+            .borderRadius('20vp')
             .border({ width: '1vp', color: '#e2e8f0' })
           }
           .width('0vp')
           .layoutWeight(1)
 
-          Column({ space: '18vp' }) {
-            Column({ space: '18vp' }) {
+          Column({ space: '12vp' }) {
+            Column({ space: '10vp' }) {
               Text('服务与识别参数')
-                .fontSize('16fp')
+                .fontSize('15fp')
                 .fontWeight(FontWeight.Bold)
                 .fontColor('#111827')
 
-              Column({ space: '12vp' }) {
-                Row({ space: '10vp' }) {
+              Column({ space: '8vp' }) {
+                Row({ space: '8vp' }) {
                   Text('服务地址')
-                    .fontSize('14fp')
+                    .fontSize('13fp')
                     .fontColor('#475569')
                   Text(this.serviceBaseUrl)
-                    .fontSize('14fp')
+                    .fontSize('13fp')
                     .fontColor('#111827')
                     .layoutWeight(1)
                 }
-                Row({ space: '10vp' }) {
+                Row({ space: '8vp' }) {
                   Text('姓名')
-                    .width('80vp')
-                    .fontSize('14fp')
+                    .width('68vp')
+                    .fontSize('13fp')
                     .fontColor('#475569')
                   TextInput({ text: this.name })
                     .onChange((value: string) => this.name = value)
                     .layoutWeight(1)
                     .backgroundColor('#f1f5f9')
                     .fontColor('#111827')
-                    .padding({ left: '14vp', right: '14vp', top: '10vp', bottom: '10vp' })
+                    .padding({ left: '12vp', right: '12vp', top: '8vp', bottom: '8vp' })
                 }
               }
             }
             .width('100%')
-            .padding('18vp')
+            .padding('12vp')
             .backgroundColor('#f8fafc')
-            .borderRadius('24vp')
+            .borderRadius('20vp')
             .border({ width: '1vp', color: '#e2e8f0' })
 
-            Column({ space: '14vp' }) {
+            Column({ space: '10vp' }) {
               Text('操作')
-                .fontSize('16fp')
+                .fontSize('15fp')
                 .fontWeight(FontWeight.Bold)
                 .fontColor('#111827')
 
-              Row({ space: '12vp' }) {
+              Row({ space: '8vp' }) {
                 Button('注册人脸')
                   .layoutWeight(1)
                   .backgroundColor('#2563eb')
                   .fontColor('#ffffff')
                   .shadow(ButtonShadow)
-                  .borderRadius('16vp')
+                  .borderRadius('14vp')
+                  .height('40vp')
                   .onClick(() => this.registerFace())
                 Button(this.isRecognizing ? '停止识别' : '开始识别')
                   .layoutWeight(1)
                   .backgroundColor(this.isRecognizing ? '#dc2626' : '#10b981')
                   .fontColor('#ffffff')
                   .shadow(ButtonShadow)
-                  .borderRadius('16vp')
+                  .borderRadius('14vp')
+                  .height('40vp')
                   .onClick(() => this.isRecognizing ? this.stopRecognize() : this.startRecognize())
               }
 
-              Row({ space: '12vp' }) {
+              Row({ space: '8vp' }) {
                 Button('刷新结果')
                   .layoutWeight(1)
                   .backgroundColor('#f1f5f9')
                   .fontColor('#111827')
                   .shadow(ButtonShadow)
-                  .borderRadius('16vp')
+                  .borderRadius('14vp')
+                  .height('40vp')
                   .onClick(() => this.getResult())
                 Button('查询状态')
                   .layoutWeight(1)
                   .backgroundColor('#f1f5f9')
                   .fontColor('#111827')
                   .shadow(ButtonShadow)
-                  .borderRadius('16vp')
+                  .borderRadius('14vp')
+                  .height('40vp')
                   .onClick(() => this.getStatus())
               }
             }
             .width('100%')
-            .padding('18vp')
+            .padding('12vp')
             .backgroundColor('#ffffff')
-            .borderRadius('24vp')
+            .borderRadius('20vp')
             .border({ width: '1vp', color: '#e2e8f0' })
 
-            Column({ space: '12vp' }) {
+            Column({ space: '8vp' }) {
               Text('识别结果')
-                .fontSize('16fp')
+                .fontSize('15fp')
                 .fontWeight(FontWeight.Bold)
                 .fontColor('#111827')
               Text(this.faceLabel)
-                .fontSize('18fp')
+                .fontSize('15fp')
                 .fontWeight(FontWeight.Medium)
                 .fontColor('#2563eb')
-                .lineHeight('24fp')
-            }
-            .width('100%')
-            .padding('18vp')
-            .backgroundColor('#f8fafc')
-            .borderRadius('24vp')
-            .border({ width: '1vp', color: '#e2e8f0' })
-
-            Column({ space: '10vp' }) {
-              Text('接口输出')
-                .fontSize('16fp')
-                .fontWeight(FontWeight.Bold)
-                .fontColor('#111827')
-              Text(this.resultText)
-                .fontSize('14fp')
-                .fontColor('#475569')
                 .lineHeight('22fp')
             }
             .width('100%')
-            .padding('18vp')
+            .padding('12vp')
+            .backgroundColor('#f8fafc')
+            .borderRadius('20vp')
+            .border({ width: '1vp', color: '#e2e8f0' })
+
+            Column({ space: '8vp' }) {
+              Text('接口输出')
+                .fontSize('15fp')
+                .fontWeight(FontWeight.Bold)
+                .fontColor('#111827')
+              Text(this.resultText)
+                .fontSize('13fp')
+                .fontColor('#475569')
+                .lineHeight('20fp')
+            }
+            .width('100%')
+            .padding('12vp')
             .backgroundColor('#ffffff')
-            .borderRadius('24vp')
+            .borderRadius('20vp')
             .border({ width: '1vp', color: '#e2e8f0' })
           }
           .width('0vp')
           .layoutWeight(1)
         }
-        .padding({ left: '20vp', right: '20vp', bottom: '20vp' })
+        .padding({ left: '16vp', right: '16vp', bottom: '20vp' })
       }
+      .width('100%')
+      .layoutWeight(1)
     }
     .width('100%')
     .height('100%')

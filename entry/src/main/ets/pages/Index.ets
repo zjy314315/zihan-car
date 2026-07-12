@@ -5,57 +5,55 @@ import { ButtonShadow } from '../styles/styles';
 @Component
 struct Index {
   build() {
-    Column() {
-      Column() {
-        Text('智行小车控制中心')
-          .fontSize('32fp')
-          .fontWeight(FontWeight.Bold)
-          .fontColor('#111827')
-        Text('选择功能，快速切换到控制、网络或人脸识别界面')
-          .fontSize('16fp')
-          .fontColor('#475569')
-          .margin({ top: '8vp' })
-      }
-      .padding({ top: '28vp', bottom: '24vp', left: '20vp', right: '20vp' })
+    Column({ space: '16vp' }) {
+      Text('智行小车控制中心')
+        .fontSize('24fp')
+        .fontWeight(FontWeight.Bold)
+        .fontColor('#111827')
+        .width('100%')
+        .textAlign(TextAlign.Start)
 
-      Row({ space: '16vp' }) {
-        ItemButton({
-          text: "麦科朗姆",
-          icon: $r('app.media.tire'),
-          event: () => {
-            router.pushUrl({ url: 'pages/MecanumWheel' })
-          }
-        })
-          .width('280vp')
-          .height('220vp')
+      Grid() {
+        GridItem() {
+          ItemButton({
+            text: '麦克纳姆轮',
+            icon: $r('app.media.tire'),
+            event: () => {
+              router.pushUrl({ url: 'pages/MecanumWheel' })
+            }
+          })
+        }
 
-        ItemButton({
-          text: "单独控制",
-          icon: $r('app.media.vector'),
-          event: () => {
-            router.pushUrl({ url: 'pages/RemoteControl' })
-          }
-        })
-          .width('280vp')
-          .height('220vp')
-      }
-      .padding({ left: '20vp', right: '20vp' })
+        GridItem() {
+          ItemButton({
+            text: '单独控制',
+            icon: $r('app.media.vector'),
+            event: () => {
+              router.pushUrl({ url: 'pages/RemoteControl' })
+            }
+          })
+        }
 
-      Row({ space: '16vp' }) {
-        ItemButton({
-          text: "人脸识别",
-          icon: $r('app.media.app_icon'),
-          event: () => {
-            router.pushUrl({ url: 'pages/FaceRecognition' })
-          }
-        })
-          .width('280vp')
-          .height('220vp')
+        GridItem() {
+          ItemButton({
+            text: '人脸识别',
+            icon: $r('app.media.app_icon'),
+            event: () => {
+              router.pushUrl({ url: 'pages/FaceRecognition' })
+            }
+          })
+        }
       }
-      .padding({ left: '20vp', right: '20vp', top: '16vp' })
+      .width('100%')
+      .columnsTemplate('1fr 1fr 1fr')
+      .rowsTemplate('1fr')
+      .columnsGap('10vp')
+      .rowsGap('10vp')
+      .height('176vp')
     }
     .width('100%')
     .height('100%')
+    .padding({ top: '24vp', left: '16vp', right: '16vp', bottom: '20vp' })
     .backgroundColor('#ffffff')
   }
 }
@@ -72,14 +70,14 @@ struct ItemButton {
       Button({ type: ButtonType.Normal, stateEffect: true }) {
         Column({ space: '16vp' }) {
           Image(this.icon)
-            .width('100vp')
-            .height('100vp')
+            .width('72vp')
+            .height('72vp')
           Text(this.text)
             .fontColor('#0f172a')
-            .fontSize('18fp')
+            .fontSize('15fp')
             .fontWeight(FontWeight.Medium)
         }
-        .padding('18vp')
+        .padding('12vp')
       }
       .width('100%')
       .height('100%')

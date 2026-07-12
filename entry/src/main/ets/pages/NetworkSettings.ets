@@ -11,7 +11,7 @@ import { MyUtils } from '../utils/MyUtils'
 @Component
 struct NetworkSettings {
   build() {
-    Column({ space: '18vp' }) {
+    Column({ space: '12vp' }) {
       Row() {
         Button('返回')
           .backgroundColor('#111827')
@@ -20,34 +20,19 @@ struct NetworkSettings {
           .shadow(ButtonShadow)
           .onClick(() => { router.back(); })
           .padding({ left: '14vp', right: '14vp', top: '10vp', bottom: '10vp' })
-
-        Blank().width('14vp')
-
-        Column() {
-          Text('网络设置')
-            .fontSize('28fp')
-            .fontWeight(FontWeight.Bold)
-            .fontColor('#111827')
-          Text('配置小车 IP 与视频端口，自动连接摄像头')
-            .fontSize('14fp')
-            .fontColor('#475569')
-        }
-        .layoutWeight(1)
       }
       .width('100%')
-      .padding({ top: '24vp', left: '20vp', right: '20vp', bottom: '4vp' })
+      .padding({ top: '24vp', left: '16vp', right: '16vp', bottom: '4vp' })
 
       Scroll() {
-        Column({ space: '18vp' }) {
-          Column() {
-            LoginComponent({
-              connectSuccessRun: () => { router.pushUrl({ url: 'pages/Index' }) },
-              connectfailRun: () => { if (MyUtils.isDebug) router.pushUrl({ url: 'pages/Index' }) }
-            })
-              .width('100%')
-          }
-          .padding({ left: '20vp', right: '20vp', bottom: '20vp' })
+        Column() {
+          LoginComponent({
+            connectSuccessRun: () => { router.pushUrl({ url: 'pages/Index' }) },
+            connectfailRun: () => { if (MyUtils.isDebug) router.pushUrl({ url: 'pages/Index' }) }
+          })
+            .width('100%')
         }
+        .padding({ left: '16vp', right: '16vp', bottom: '20vp' })
       }
     }
     .width('100%')

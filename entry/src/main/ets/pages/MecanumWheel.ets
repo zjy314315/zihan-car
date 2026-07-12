@@ -15,7 +15,7 @@ struct MecanumWheel {
   @State R2Value: number = 0;
 
   build() {
-    Column({ space: '18vp' }) {
+    Column({ space: '14vp' }) {
       Row() {
         Button('返回')
           .backgroundColor('#111827')
@@ -24,244 +24,99 @@ struct MecanumWheel {
           .shadow(ButtonShadow)
           .onClick(() => { router.back(); })
           .padding({ left: '16vp', right: '16vp', top: '12vp', bottom: '12vp' })
-
-        Blank().width('14vp')
-
-        Column() {
-          Text('麦克纳姆轮控制')
-            .fontSize('28fp')
-            .fontWeight(FontWeight.Bold)
-            .fontColor('#111827')
-          Text('精细调节四轮速度，配合摇杆控制更灵活')
-            .fontSize('14fp')
-            .fontColor('#475569')
-        }
-        .layoutWeight(1)
       }
       .width('100%')
-      .padding({ top: '24vp', left: '20vp', right: '20vp', bottom: '4vp' })
+      .padding({ top: '24vp', left: '16vp', right: '16vp', bottom: '4vp' })
 
       Scroll() {
-        Column({ space: '18vp' }) {
-          Row({ space: '18vp' }) {
-            Column({ space: '18vp' }) {
-              Column({ space: '14vp' }) {
-                Text('轮速调节')
-                  .fontSize('18fp')
-                  .fontWeight(FontWeight.Bold)
-                  .fontColor('#111827')
-                Text('调整每个车轮的前进/后退速度，支持细致操控。')
-                  .fontSize('14fp')
-                  .fontColor('#475569')
-              }
+        Column({ space: '14vp' }) {
+          Column({ space: '12vp' }) {
+            Text('轮速调节')
+              .fontSize('16fp')
+              .fontWeight(FontWeight.Bold)
+              .fontColor('#111827')
 
-              Row({ space: '18vp' }) {
-                Column({ space: '14vp' }) {
-                  Column({ space: '10vp' }) {
-                    Row() {
-                      Text('左前轮')
-                        .fontSize('16fp')
-                        .fontWeight(FontWeight.Medium)
-                        .fontColor('#111827')
-                      Blank().layoutWeight(1)
-                      Text(`${this.L1Value.toFixed(0)}`)
-                        .fontSize('16fp')
-                        .fontColor('#2563eb')
-                    }
-                    Slider({
-                      value: this.L1Value,
-                      min: -100,
-                      max: 100,
-                      style: SliderStyle.InSet
-                    })
-                      .blockColor('#2563eb')
-                      .trackColor('#e2e8f0')
-                      .selectedColor('#2563eb')
-                      .onChange((value: number, mode: SliderChangeMode) => {
-                        this.L1Value = value;
-                      })
-                  }
-                  .padding('14vp')
-                  .backgroundColor('#ffffff')
-                  .borderRadius('20vp')
-                  .border({ width: '1vp', color: '#e2e8f0' })
-
-                  Column({ space: '10vp' }) {
-                    Row() {
-                      Text('左后轮')
-                        .fontSize('16fp')
-                        .fontWeight(FontWeight.Medium)
-                        .fontColor('#111827')
-                      Blank().layoutWeight(1)
-                      Text(`${this.L2Value.toFixed(0)}`)
-                        .fontSize('16fp')
-                        .fontColor('#2563eb')
-                    }
-                    Slider({
-                      value: this.L2Value,
-                      min: -100,
-                      max: 100,
-                      style: SliderStyle.InSet
-                    })
-                      .blockColor('#2563eb')
-                      .trackColor('#e2e8f0')
-                      .selectedColor('#2563eb')
-                      .onChange((value: number, mode: SliderChangeMode) => {
-                        this.L2Value = value;
-                      })
-                  }
-                  .padding('14vp')
-                  .backgroundColor('#ffffff')
-                  .borderRadius('20vp')
-                  .border({ width: '1vp', color: '#e2e8f0' })
-                }
-                .layoutWeight(1)
-
-                Column({ space: '14vp' }) {
-                  Column({ space: '10vp' }) {
-                    Row() {
-                      Text('右前轮')
-                        .fontSize('16fp')
-                        .fontWeight(FontWeight.Medium)
-                        .fontColor('#111827')
-                      Blank().layoutWeight(1)
-                      Text(`${this.R1Value.toFixed(0)}`)
-                        .fontSize('16fp')
-                        .fontColor('#2563eb')
-                    }
-                    Slider({
-                      value: this.R1Value,
-                      min: -100,
-                      max: 100,
-                      style: SliderStyle.InSet
-                    })
-                      .blockColor('#2563eb')
-                      .trackColor('#e2e8f0')
-                      .selectedColor('#2563eb')
-                      .onChange((value: number, mode: SliderChangeMode) => {
-                        this.R1Value = value;
-                      })
-                  }
-                  .padding('14vp')
-                  .backgroundColor('#ffffff')
-                  .borderRadius('20vp')
-                  .border({ width: '1vp', color: '#e2e8f0' })
-
-                  Column({ space: '10vp' }) {
-                    Row() {
-                      Text('右后轮')
-                        .fontSize('16fp')
-                        .fontWeight(FontWeight.Medium)
-                        .fontColor('#111827')
-                      Blank().layoutWeight(1)
-                      Text(`${this.R2Value.toFixed(0)}`)
-                        .fontSize('16fp')
-                        .fontColor('#2563eb')
-                    }
-                    Slider({
-                      value: this.R2Value,
-                      min: -100,
-                      max: 100,
-                      style: SliderStyle.InSet
-                    })
-                      .blockColor('#2563eb')
-                      .trackColor('#e2e8f0')
-                      .selectedColor('#2563eb')
-                      .onChange((value: number, mode: SliderChangeMode) => {
-                        this.R2Value = value;
-                      })
-                  }
-                  .padding('14vp')
-                  .backgroundColor('#ffffff')
-                  .borderRadius('20vp')
-                  .border({ width: '1vp', color: '#e2e8f0' })
-                }
-                .layoutWeight(1)
-              }
+            Column({ space: '10vp' }) {
+              WheelSlider({ title: '左前轮', value: $L1Value })
+              WheelSlider({ title: '左后轮', value: $L2Value })
+              WheelSlider({ title: '右前轮', value: $R1Value })
+              WheelSlider({ title: '右后轮', value: $R2Value })
             }
-            .width('0vp')
-            .layoutWeight(1)
-            .padding('20vp')
-            .backgroundColor('#f8fafc')
-            .borderRadius('28vp')
-            .border({ width: '1vp', color: '#e2e8f0' })
-
-            Column({ space: '18vp' }) {
-              Column({ space: '14vp' }) {
-                Text('摇杆控制')
-                  .fontSize('18fp')
-                  .fontWeight(FontWeight.Bold)
-                  .fontColor('#111827')
-                Text('使用摇杆进行方向控制，适合动态驾驶场景。')
-                  .fontSize('14fp')
-                  .fontColor('#475569')
-              }
-              .padding('16vp')
-              .backgroundColor('#ffffff')
-              .borderRadius('24vp')
-              .border({ width: '1vp', color: '#e2e8f0' })
-
-              CarRockerComponents()
-                .width('100%')
-                .height('320vp')
-                .padding('16vp')
-                .backgroundColor('#f8fafc')
-                .borderRadius('28vp')
-                .border({ width: '1vp', color: '#e2e8f0' })
-            }
-            .width('0vp')
-            .layoutWeight(1)
           }
+          .padding('14vp')
+          .backgroundColor('#f8fafc')
+          .borderRadius('24vp')
+          .border({ width: '1vp', color: '#e2e8f0' })
 
-          Column({ space: '18vp' }) {
-            Column({ space: '14vp' }) {
-              Text('当前轮速')
-                .fontSize('18fp')
-                .fontWeight(FontWeight.Bold)
-                .fontColor('#111827')
-              Row({ space: '16vp' }) {
+          Column({ space: '10vp' }) {
+            Text('摇杆控制')
+              .fontSize('16fp')
+              .fontWeight(FontWeight.Bold)
+              .fontColor('#111827')
+            CarRockerComponents()
+              .width('100%')
+              .height('240vp')
+          }
+          .padding('14vp')
+          .backgroundColor('#ffffff')
+          .borderRadius('24vp')
+          .border({ width: '1vp', color: '#e2e8f0' })
+
+          Column({ space: '10vp' }) {
+            Text('当前轮速')
+              .fontSize('16fp')
+              .fontWeight(FontWeight.Bold)
+              .fontColor('#111827')
+            Grid() {
+              GridItem() {
                 InfoCard({ title: '左前', value: `${this.L1Value.toFixed(0)}` })
+              }
+              GridItem() {
                 InfoCard({ title: '左后', value: `${this.L2Value.toFixed(0)}` })
+              }
+              GridItem() {
                 InfoCard({ title: '右前', value: `${this.R1Value.toFixed(0)}` })
+              }
+              GridItem() {
                 InfoCard({ title: '右后', value: `${this.R2Value.toFixed(0)}` })
               }
             }
-            .padding('20vp')
-            .backgroundColor('#f8fafc')
-            .borderRadius('28vp')
-            .border({ width: '1vp', color: '#e2e8f0' })
+            .columnsTemplate('1fr 1fr')
+            .rowsTemplate('1fr 1fr')
+            .columnsGap('10vp')
+            .rowsGap('10vp')
+          }
+          .padding('14vp')
+          .backgroundColor('#f8fafc')
+          .borderRadius('24vp')
+          .border({ width: '1vp', color: '#e2e8f0' })
 
-            Row({ space: '16vp' }) {
-              Button('更新速度')
-                .layoutWeight(1)
-                .backgroundColor('#2563eb')
-                .fontColor('#ffffff')
-                .shadow(ButtonShadow)
-                .borderRadius('18vp')
-                .padding({ top: '16vp', bottom: '16vp' })
-                .onClick(() => { this.sendSpeed(); })
-              Button('全部归零')
-                .layoutWeight(1)
-                .backgroundColor('#f1f5f9')
-                .fontColor('#111827')
-                .shadow(ButtonShadow)
-                .borderRadius('18vp')
-                .padding({ top: '16vp', bottom: '16vp' })
-                .onClick(() => {
-                  this.L1Value = 0;
-                  this.L2Value = 0;
-                  this.R1Value = 0;
-                  this.R2Value = 0;
-                  this.sendSpeed();
-                })
-            }
-            .padding('8vp')
-            .backgroundColor('#ffffff')
-            .borderRadius('24vp')
-            .border({ width: '1vp', color: '#e2e8f0' })
+          Row({ space: '10vp' }) {
+            Button('更新速度')
+              .layoutWeight(1)
+              .backgroundColor('#2563eb')
+              .fontColor('#ffffff')
+              .shadow(ButtonShadow)
+              .borderRadius('18vp')
+              .padding({ top: '12vp', bottom: '12vp' })
+              .onClick(() => { this.sendSpeed(); })
+            Button('全部归零')
+              .layoutWeight(1)
+              .backgroundColor('#f1f5f9')
+              .fontColor('#111827')
+              .shadow(ButtonShadow)
+              .borderRadius('18vp')
+              .padding({ top: '12vp', bottom: '12vp' })
+              .onClick(() => {
+                this.L1Value = 0;
+                this.L2Value = 0;
+                this.R1Value = 0;
+                this.R2Value = 0;
+                this.sendSpeed();
+              })
           }
         }
-        .padding({ left: '20vp', right: '20vp', bottom: '20vp' })
+        .padding({ left: '16vp', right: '16vp', bottom: '20vp' })
       }
     }
     .width('100%')

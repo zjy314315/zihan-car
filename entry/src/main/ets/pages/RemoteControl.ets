@@ -14,7 +14,7 @@ struct RemoteControl {
   ctrlModeList: CtrlModel[] = [CtrlModel.Button, CtrlModel.Rocker]
 
   build() {
-    Column({ space: '18vp' }) {
+    Column({ space: '14vp' }) {
       Row() {
         Button('返回')
           .backgroundColor('#111827')
@@ -23,27 +23,14 @@ struct RemoteControl {
           .shadow(ButtonShadow)
           .onClick(() => { router.back(); })
           .padding({ left: '14vp', right: '14vp', top: '10vp', bottom: '10vp' })
-
-        Blank().width('14vp')
-
-        Column() {
-          Text('单独控制')
-            .fontSize('28fp')
-            .fontWeight(FontWeight.Bold)
-            .fontColor('#111827')
-          Text('小车控制与摄像头画面统一风格展示')
-            .fontSize('14fp')
-            .fontColor('#475569')
-        }
-        .layoutWeight(1)
       }
       .width('100%')
-      .padding({ top: '24vp', left: '20vp', right: '20vp', bottom: '4vp' })
+      .padding({ top: '24vp', left: '16vp', right: '16vp', bottom: '4vp' })
 
       Scroll() {
-        Row({ space: '18vp' }) {
-          Column({ space: '18vp' }) {
-            Row({ space: '12vp' }) {
+        Column({ space: '14vp' }) {
+          Column({ space: '12vp' }) {
+            Row({ space: '10vp' }) {
               ForEach(this.ctrlTextTextList, (item: string, index: number) => {
                 MyTab({
                   state: this.nowCtrlModel == this.ctrlModeList[index],
@@ -51,7 +38,7 @@ struct RemoteControl {
                 }).onClick(() => { state: this.nowCtrlModel = this.ctrlModeList[index] })
               }, (item: string) => item)
             }
-            .padding('16vp')
+            .padding('12vp')
             .backgroundColor('#f8fafc')
             .borderRadius('20vp')
             .border({ width: '1vp', color: '#e2e8f0' })
@@ -63,55 +50,43 @@ struct RemoteControl {
                 .visibility(this.nowCtrlModel == CtrlModel.Rocker ? Visibility.Visible : Visibility.None)
             }
             .width('100%')
-            .height('320vp')
-            .padding('18vp')
+            .height('280vp')
+            .padding('12vp')
             .backgroundColor('#f8fafc')
             .borderRadius('20vp')
             .border({ width: '1vp', color: '#e2e8f0' })
           }
-          .width('0vp')
-          .layoutWeight(1)
 
-          Column({ space: '18vp' }) {
-            Column({ space: '14vp' }) {
-              Text('摄像头画面')
-                .fontSize('16fp')
-                .fontWeight(FontWeight.Bold)
-                .fontColor('#111827')
+          Column({ space: '12vp' }) {
+            Text('摄像头画面')
+              .fontSize('15fp')
+              .fontWeight(FontWeight.Bold)
+              .fontColor('#111827')
 
-              VideoComponents({ showControls: true, videoWidth: '100%', videoHeight: '320vp' })
-                .borderRadius('18vp')
+            VideoComponents({ showControls: true, videoWidth: '100%', videoHeight: '240vp' })
+              .borderRadius('18vp')
+
+            Row() {
+              Checkbox() {
+                Text('自动循迹')
+                  .fontSize('14fp')
+                  .fontColor('#111827')
+              }.onChange((value: boolean) => {
+                if (value) {
+                  carApi.send(CarEncode.TrackingOpenEncode());
+                } else {
+                  carApi.send(CarEncode.TrackingCloseEncode());
+                }
+              })
             }
-            .width('100%')
-            .padding('18vp')
-            .backgroundColor('#f8fafc')
-            .borderRadius('20vp')
-            .border({ width: '1vp', color: '#e2e8f0' })
-
-            Column({ space: '12vp' }) {
-              Row() {
-                Checkbox() {
-                  Text('自动循迹')
-                    .fontSize('14fp')
-                    .fontColor('#111827')
-                }.onChange((value: boolean) => {
-                  if (value) {
-                    carApi.send(CarEncode.TrackingOpenEncode());
-                  } else {
-                    carApi.send(CarEncode.TrackingCloseEncode());
-                  }
-                })
-              }
-            }
-            .padding('18vp')
-            .backgroundColor('#ffffff')
-            .borderRadius('20vp')
-            .border({ width: '1vp', color: '#e2e8f0' })
           }
-          .width('0vp')
-          .layoutWeight(1)
+          .width('100%')
+          .padding('14vp')
+          .backgroundColor('#f8fafc')
+          .borderRadius('20vp')
+          .border({ width: '1vp', color: '#e2e8f0' })
         }
-        .padding({ left: '20vp', right: '20vp', bottom: '20vp' })
+        .padding({ left: '16vp', right: '16vp', bottom: '20vp' })
       }
     }
     .width('100%')
