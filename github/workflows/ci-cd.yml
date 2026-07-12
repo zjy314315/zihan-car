@@ -1,0 +1,97 @@
+# .github/workflows/ci-cd.yml
+name: zihan-car CI/CD
+
+# 触发条件：推送到 master 分支，或创建 Pull Request
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  # 1. 测试与构建任务
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # 分别测试 App (HarmonyOS) 和 ROS 桥接服务 (Python)
+        project: ['app', 'ros_bridge']
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python (for ROS bridge)
+        if: matrix.project == 'ros_bridge'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.8'
+      - name: Install ROS bridge dependencies
+        if: matrix.project == 'ros_bridge'
+        run: |
+          pip install pytest
+          # 此处可根据需要添加其他依赖，如 rospy, numpy 等
+
+      - name: Set up HarmonyOS SDK (for App)
+        if: matrix.project == 'app'
+        uses: god-dos/actions-setup-harmonyos-sdk@v1
+        with:
+          sdk-version: '4.1.0.400'
+
+      - name: Build App
+        if: matrix.project == 'app'
+        run: |
+          # 假设项目根目录下有 build-profile.json5，使用 hvigor 构建
+          ./hvigorw clean assembleApp
+          # 构建产物通常位于 entry/build/default/outputs/default/
+
+      - name: Run Python tests
+        if: matrix.project == 'ros_bridge'
+        run: |
+          # 对 tcp_ros_bridge.py 进行简单的语法和风格检查
+          python -m py_compile tcp_ros_bridge.py
+          # 如果有单元测试文件，可在此运行 pytest
+
+      - name: Upload App artifacts
+        if: matrix.project == 'app'
+        uses: actions/upload-artifact@v4
+        with:
+          name: harmonyos-app
+          path: entry/build/*/outputs/default/*.hap
+
+      - name: Upload ROS bridge artifacts
+        if: matrix.project == 'ros_bridge'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ros-bridge-scripts
+          path: |
+            tcp_ros_bridge.py
+            # 可添加其他需要部署的脚本或配置文件
+
+  # 2. 部署任务（依赖构建任务的成功结果）
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Download App artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: harmonyos-app
+
+      - name: Download ROS bridge artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: ros-bridge-scripts
+
+      # 模拟部署到小车（实际需配置 SSH 或 SCP）
+      - name: Deploy to Jetson Car (Dry Run)
+        run: |
+          echo "模拟部署: 将 tcp_ros_bridge.py 等文件传输到小车"
+          # 实际部署时，可使用 appleboy/scp-action 或 ssh-action
+          # 并配置仓库 Secrets 存储小车IP、用户名和密钥
+          # - uses: appleboy/scp-action@v0.1.7
+          #   with:
+          #     host: ${{ secrets.CAR_IP }}
+          #     username: ${{ secrets.CAR_USER }}
+          #     key: ${{ secrets.CAR_SSH_KEY }}
+          #     source: "tcp_ros_bridge.py"
+          #     target: "/home/jetson/zihan-car/"
