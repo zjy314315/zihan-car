@@ -33,7 +33,11 @@ class Listener:
     def reset(self) -> None:
         if self.recorder and self.recorder.poll() is None:
             self.recorder.terminate()
-            self.recorder.wait(timeout=5)
+            try:
+                self.recorder.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                self.recorder.kill()
+                self.recorder.wait()
         self.recorder = subprocess.Popen(["arecord", "-D", self.device, "-f", "S16_LE", "-r", str(self.rate), "-c", "1", "-t", "raw"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         self.recognizer = KaldiRecognizer(self.model, self.rate)
 
@@ -46,7 +50,8 @@ class Listener:
 
 
 def ask_ollama(url: str, model: str, message: str) -> str:
-    response = requests.post(url, json={"model": model, "stream": False, "messages": [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": message}]}, timeout=90)
+    payload = {"model": model, "stream": False, "options": {"num_predict": 80, "temperature": 0.3}, "messages": [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": message}]}
+    response = requests.post(url, json=payload, timeout=90)
     response.raise_for_status()
     return response.json()["message"]["content"].strip()
 
