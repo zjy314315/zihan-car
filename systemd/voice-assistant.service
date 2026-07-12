@@ -1,0 +1,16 @@
+[Unit]
+Description=Zihan Car local voice assistant
+After=network.target ollama.service sound.target
+Wants=ollama.service
+
+[Service]
+Type=simple
+User=jetson
+WorkingDirectory=/home/jetson/zihan-car/voice_assistant
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 /home/jetson/zihan-car/voice_assistant/conversation.py
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
