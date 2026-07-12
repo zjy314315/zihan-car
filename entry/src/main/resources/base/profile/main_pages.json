@@ -4,6 +4,8 @@
     "pages/MecanumWheel",
     "pages/RemoteControl",
     "pages/NetworkSettings",
-    "pages/FaceRecognition"
+    "pages/FaceRecognition",
+    "pages/FallDetection",
+    "pages/MusicPlayer"
   ]
 }
