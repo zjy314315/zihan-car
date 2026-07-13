@@ -1,6 +1,7 @@
 import router from '@ohos.router';
 import { TCPClientManager } from '../tcp/TCPClientManager';
 import { PreferencesUtils } from '../utils/PreferencesUtils';
+import { VideoComponents } from '../components/VideoComponents';
 
 @Entry
 @Component
@@ -17,6 +18,10 @@ struct Index {
     if (this.isConnected) {
       this.carIp = await PreferencesUtils.getInstance().netUtils.getIP() as string;
       this.connLabel = `已连接 ${this.carIp}`;
+      // 恢复视频连接地址（否则 VideoComponents 会一直用默认 IP）
+      VideoComponents.ip = this.carIp;
+      let vp: string = await PreferencesUtils.getInstance().netUtils.getVideoPort() as string;
+      VideoComponents.port = Number.parseInt(vp);
     } else {
       this.connLabel = '暂未连接';
     }
