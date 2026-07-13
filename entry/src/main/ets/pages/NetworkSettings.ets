@@ -13,6 +13,7 @@ import util from '@ohos.util'
 interface CarInfo {
   name: string; ip: string; tcp_port: number; monitor_port: number; video_port: number;
 }
+interface BindInfo { address: string; port: number; family: number; }
 
 @Entry
 @Component
@@ -136,7 +137,7 @@ struct NetworkSettings {
 
     try {
       this.udpSocket = socket.constructUDPSocketInstance()
-      let opts: socket.UDPBindOptions = { address: '0.0.0.0', port: 9999, family: 1 }
+      let opts: BindInfo = { address: '0.0.0.0', port: 9999, family: 1 }
       await this.udpSocket.bind(opts)
       this.udpSocket.on('message', (value: socket.SocketMessageInfo) => {
         let msg: string = this.buf2String(value.message)
@@ -212,7 +213,7 @@ struct LoginComponent {
       Row({ space: '12vp' }) {
         Text('IP:').width(this.TextWidth).textAlign(TextAlign.End).fontSize(this.FontSize).fontColor('#111827')
         Blank().width(this.BlankWidth)
-        TextInput({ text: this.ip }).onChange((v: string) => { this.ip = v })
+        TextInput({ text: this.ip }).onChange((v) => { this.ip = v })
           .layoutWeight(1).backgroundColor('#f1f5f9').fontColor('#111827')
           .padding({ left: '14vp', right: '14vp', top: '12vp', bottom: '12vp' })
       }
@@ -220,7 +221,7 @@ struct LoginComponent {
       Row({ space: '12vp' }) {
         Text('Port:').width(this.TextWidth).textAlign(TextAlign.End).fontSize(this.FontSize).fontColor('#111827')
         Blank().width(this.BlankWidth)
-        TextInput({ text: this.tcpPort }).onChange((v: string) => { this.tcpPort = v })
+        TextInput({ text: this.tcpPort }).onChange((v) => { this.tcpPort = v })
           .layoutWeight(1).backgroundColor('#f1f5f9').fontColor('#111827')
           .padding({ left: '14vp', right: '14vp', top: '12vp', bottom: '12vp' })
       }
@@ -228,7 +229,7 @@ struct LoginComponent {
       Row({ space: '12vp' }) {
         Text('Video:').width(this.TextWidth).textAlign(TextAlign.End).fontSize(this.FontSize).fontColor('#111827')
         Blank().width(this.BlankWidth)
-        TextInput({ text: this.videoPort }).onChange((v: string) => { this.videoPort = v })
+        TextInput({ text: this.videoPort }).onChange((v) => { this.videoPort = v })
           .layoutWeight(1).backgroundColor('#f1f5f9').fontColor('#111827')
           .padding({ left: '14vp', right: '14vp', top: '12vp', bottom: '12vp' })
       }
@@ -258,9 +259,9 @@ struct LoginComponent {
   }
 
   private readNetConfig(): void {
-    PreferencesUtils.getInstance().netUtils.getIP().then((v: string) => { this.ip = v })
-    PreferencesUtils.getInstance().netUtils.getTcpPort().then((v: string) => { this.tcpPort = v })
-    PreferencesUtils.getInstance().netUtils.getVideoPort().then((v: string) => { this.videoPort = v })
+    PreferencesUtils.getInstance().netUtils.getIP().then((v) => { this.ip = v as string })
+    PreferencesUtils.getInstance().netUtils.getTcpPort().then((v) => { this.tcpPort = v as string })
+    PreferencesUtils.getInstance().netUtils.getVideoPort().then((v) => { this.videoPort = v as string })
   }
 
   private async saveNetConfig(): Promise<void> {

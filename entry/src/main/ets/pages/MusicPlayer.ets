@@ -2,6 +2,7 @@ import router from '@ohos.router';
 import promptAction from '@ohos.promptAction';
 import { carApi } from '../CarUtill/CarApi';
 import { CarEncode } from '../CarUtill/CarEncode';
+import { CarDirection } from '../CarUtill/CarEnum';
 import { TCPClientManager } from '../tcp/TCPClientManager';
 import { PreferencesUtils } from '../utils/PreferencesUtils';
 
