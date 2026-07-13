@@ -61,7 +61,7 @@ def ask_ollama(url: str, model: str, message: str) -> str:
     payload = {"model": model, "stream": False, "options": {"num_predict": 32, "temperature": 0.2}, "messages": [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": message}]}
     response = requests.post(url, json=payload, timeout=90)
     response.raise_for_status()
-        reply = "".join(response.json()["message"]["content"].split())
+    reply = "".join(response.json()["message"]["content"].split())
     return reply[:20] or "\u6211\u6682\u65f6\u65e0\u6cd5\u56de\u7b54\u3002"
 
 
