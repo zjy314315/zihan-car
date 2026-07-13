@@ -592,6 +592,27 @@ def audio_status():
 
 
 # ========== 启动 ==========
+
+@app.route("/video_page")
+def video_page():
+    return '''<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>body{margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;overflow:hidden}
+img{width:100%;height:auto;display:block}</style></head>
+<body><img id="v" src="/snapshot"><script>
+setInterval(function(){document.getElementById("v").src="/snapshot?t="+Date.now()},200)
+</script></body></html>'''
+
+
+@app.route("/snapshot")
+def snapshot():
+    frame = ai_service.get_frame()
+    if frame is None:
+        return "no frame", 503
+    _, jpg = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
+    return Response(jpg.tobytes(), mimetype='image/jpeg')
+
+
+
 if __name__ == "__main__":
     print("=" * 50)
     print("  iCar 统一主服务")

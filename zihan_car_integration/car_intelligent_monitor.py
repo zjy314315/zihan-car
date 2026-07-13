@@ -1009,7 +1009,7 @@ class CarDiscoveryService:
                     "ip": ip,
                     "tcp_port": 6000,
                     "monitor_port": 5001,
-                    "video_port": 6500,
+                    "video_port": 5000,
                 })
                 sock.sendto(msg.encode("utf-8"), ("255.255.255.255", self.port))
             except Exception as e:

@@ -19,12 +19,14 @@ export struct VideoComponents {
     Column() {
       RelativeContainer() {
         Web({
-          src: this.getWebSrc(),
+          src: this.getVideoUrl(),
           controller: this.controller
         })
           .id("Video")
           .width('100%')
           .height('100%')
+          .javaScriptAccess(true)
+          .domStorageAccess(true)
 
         if (this.isRecording)
           RedRound()
@@ -34,10 +36,7 @@ export struct VideoComponents {
               bottom: { anchor: "__container__", align: VerticalAlign.Bottom },
               right: { anchor: "__container__", align: HorizontalAlign.End }
             })
-            .offset({
-              x: -30,
-              y: -30
-            })
+            .offset({ x: -30, y: -30 })
       }
       .width(this.videoWidth)
       .height(this.videoHeight)
@@ -48,25 +47,15 @@ export struct VideoComponents {
         Row({ space: '12vp' }) {
           if (!this.isRecording) {
             Button("拍摄")
-              .backgroundColor('#2563eb')
-              .fontColor('#ffffff')
-              .shadow(ButtonShadow)
-              .onClick(() => {
-                carApi.send(CarEncode.TakePhotosEncode());
-              })
+              .backgroundColor('#2563eb').fontColor('#ffffff').shadow(ButtonShadow)
+              .onClick(() => { carApi.send(CarEncode.TakePhotosEncode()) })
           }
-
           Button(this.isRecording ? "结束" : "录制")
-            .backgroundColor(this.isRecording ? '#dc2626' : '#10b981')
-            .fontColor('#ffffff')
-            .shadow(ButtonShadow)
+            .backgroundColor(this.isRecording ? '#dc2626' : '#10b981').fontColor('#ffffff').shadow(ButtonShadow)
             .onClick(() => {
-              if (this.isRecording) {
-                carApi.send(CarEncode.CloselRecordingEncode());
-              } else {
-                carApi.send(CarEncode.StartRecordingEncode());
-              }
-              this.isRecording = !this.isRecording;
+              if (this.isRecording) { carApi.send(CarEncode.CloselRecordingEncode()) }
+              else { carApi.send(CarEncode.StartRecordingEncode()) }
+              this.isRecording = !this.isRecording
             })
         }
         .padding({ top: '12vp' })
@@ -75,37 +64,26 @@ export struct VideoComponents {
     .justifyContent(FlexAlign.Center)
   }
 
-  getWebSrc() {
-    let v: string = `http://${VideoComponents.ip}:${VideoComponents.port}/index2`
-    console.log(TAG, "getWebSrc()", v)
+  getVideoUrl(): string {
+    let v: string = `http://${VideoComponents.ip}:${VideoComponents.port}/video_page`
+    console.log(TAG, "getVideoUrl()", v)
     return v
   }
 }
 
 @Component
 struct RedRound {
-  @State isShow: boolean = true;
+  @State isShow: boolean = true
 
   aboutToAppear(): void {
-    setInterval(() => {
-      this.isShow = !this.isShow;
-    }, 1000);
+    setInterval(() => { this.isShow = !this.isShow }, 1000)
   }
 
   build() {
     Text()
-      .width('10vp')
-      .height('10vp')
-      .backgroundColor(Color.Red)
-      .animation({
-        duration: 1200,
-        curve: Curve.Friction,
-        delay: 500,
-        iterations: -1,
-      })
-      .border({
-        radius: "5vp"
-      })
+      .width('10vp').height('10vp').backgroundColor(Color.Red)
+      .animation({ duration: 1200, curve: Curve.Friction, delay: 500, iterations: -1 })
+      .border({ radius: "5vp" })
       .visibility(this.isShow ? Visibility.Visible : Visibility.None)
   }
 }
