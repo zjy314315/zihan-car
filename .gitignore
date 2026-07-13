@@ -22,3 +22,15 @@
 # Build artifacts in doc
 doc/**/*.hap
 doc/**/*.abc
+
+# Signing config (user-specific)
+build-profile.json5
+
+# Hvigor config (version varies per developer)
+/hvigor/hvigor-config.json5
+
+# OH package config (version varies per developer)
+oh-package.json5
+
+# Large doc files
+doc/2408/*.doc
