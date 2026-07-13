@@ -26,5 +26,8 @@ doc/**/*.abc
 # Signing config (user-specific)
 build-profile.json5
 
+# Hvigor config (version varies per developer)
+/hvigor/hvigor-config.json5
+
 # Large doc files
 doc/2408/*.doc
