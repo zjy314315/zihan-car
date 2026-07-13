@@ -201,17 +201,24 @@ struct MusicPlayer {
   }
 
   trimName(name: string): string {
-    const dot: number = name.lastIndexOf('.');
-    return dot > 0 ? name.substring(0, dot) : name;
+    // Remove extension and filter out test files
+    let dot: number = name.lastIndexOf('.');
+    let base: string = dot > 0 ? name.substring(0, dot) : name;
+    // Skip test files
+    if (base.startsWith('test_')) { return ''; }
+    return base;
   }
 
   getTrackList(): string[] {
     if (this.hasAudioServer && this.audioFiles.length > 0) {
       const names: string[] = [];
       for (let i: number = 0; i < this.audioFiles.length; i++) {
-        names.push(this.audioFiles[i].name);
+        const raw: string = this.audioFiles[i].name;
+        // Filter out test files
+        if (raw.startsWith('test_')) { continue; }
+        names.push(this.trimName(raw));
       }
-      return names;
+      if (names.length > 0) { return names; }
     }
     return this.beepTracks;
   }
