@@ -5,7 +5,6 @@ import { PreferencesUtils } from '../utils/PreferencesUtils';
 import { TCPClientManager } from '../tcp/TCPClientManager';
 import { VideoComponents } from '../components/VideoComponents';
 
-// ---- 编队控制接口类型 ----
 interface FormationTarget { bbox: number[]; confidence: number; }
 interface FormationCmd { linear: number; angular: number; }
 interface FormationConfig {
@@ -34,8 +33,6 @@ struct FormationControl {
   @State serviceBaseUrl: string = 'http://192.168.1.11:5001';
   @State carIp: string = '';
   @State isConnected: boolean = false;
-
-  // ---- 编队状态 ----
   @State isDetectMode: boolean = false;
   @State isFollowing: boolean = false;
   @State modelLoaded: boolean = false;
@@ -47,8 +44,6 @@ struct FormationControl {
   @State cmdLinear: number = 0;
   @State cmdAngular: number = 0;
   @State lostFrames: number = 0;
-
-  // ---- 配置 ----
   @State showConfig: boolean = false;
   @State targetBboxHeight: number = 200;
   @State confidenceThreshold: number = 0.5;
@@ -61,10 +56,7 @@ struct FormationControl {
   @State maxLostFrames: number = 5;
   @State frameSkip: number = 3;
 
-  // ---- 对话框 ----
   private dialogShown: boolean = false;
-
-  // ---- 轮询 ----
   private pollTimer: number = -1;
 
   aboutToAppear(): void { this.initPage(); }
@@ -75,7 +67,6 @@ struct FormationControl {
     this.serviceBaseUrl = `http://${this.carIp}:5001`;
     this.isConnected = await TCPClientManager.getInstance().isConnect();
     if (this.isConnected) {
-      // 自动启动检测模式
       await this.startDetect();
       this.startPolling();
     }
@@ -83,7 +74,6 @@ struct FormationControl {
 
   cleanup(): void {
     this.stopPolling();
-    // 退出页面时停止检测
     this.callService(http.RequestMethod.POST, '/formation/stop');
   }
 
@@ -91,196 +81,157 @@ struct FormationControl {
     this.stopPolling();
     this.pollTimer = setInterval(() => { this.getStatus(); }, 1500);
   }
+
   stopPolling(): void {
-    if (this.pollTimer !== -1) { clearInterval(this.pollTimer); this.pollTimer = -1; }
+    if (this.pollTimer !== -1) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = -1;
+    }
   }
 
   build() {
     Column() {
-      // ====== 顶部栏 ======
-      Row({ space: '8vp' }) {
-        Button('← 返回')
-          .fontSize('12fp').fontColor('#ffffff').backgroundColor('#1a1a1a')
-          .borderRadius('6vp').padding({ left: '10vp', right: '10vp', top: '6vp', bottom: '6vp' })
+      Row({ space: '12vp' }) {
+        Button('<')
+          .width('44vp').height('44vp').fontSize('22fp').fontColor('#111111')
+          .backgroundColor('#f5f5f5').borderRadius('22vp')
           .onClick(() => { this.cleanup(); router.back(); })
-        Text('小车编队').fontSize('15fp').fontWeight(FontWeight.Bold).fontColor('#111111')
-        Blank()
-        this.StatusDot()
-        Text(this.isConnected ? `已连接 ${this.carIp}` : '未连接').fontSize('11fp')
-          .fontColor(this.isConnected ? '#333333' : '#999999')
-        Text(this.isFollowing ? ' | 跟随中' : (this.isDetectMode ? ' | 检测中' : ' | 待机')).fontSize('11fp')
-          .fontColor(this.isFollowing ? '#22c55e' : (this.isDetectMode ? '#3b82f6' : '#cccccc'))
-      }
-      .width('100%').padding({ left: '10vp', right: '10vp', top: '8vp', bottom: '6vp' })
-      .backgroundColor('#fafafa').border({ width: { bottom: '1vp' }, color: '#e5e5e5' })
+        Column() {
+          Text('协同驾驶').fontSize('11fp').fontWeight(FontWeight.Bold).fontColor('#707072')
+          Text('小车编队').fontSize('26fp').fontWeight(FontWeight.Bold).fontColor('#111111')
+        }.alignItems(HorizontalAlign.Start).layoutWeight(1)
+        Text(this.isConnected ? '在线' : '离线')
+          .fontSize('11fp').fontWeight(FontWeight.Bold)
+          .fontColor(this.isConnected ? '#007d48' : '#707072')
+      }.width('100%').padding({ left: '20vp', right: '20vp', top: '20vp', bottom: '16vp' })
 
-      // ====== 主体 ======
-      Row({ space: '8vp' }) {
-        // 左侧：视频
-        Column({ space: '4vp' }) {
-          VideoComponents({ showControls: false, videoWidth: '100%', videoHeight: '100%' })
-            .borderRadius('10vp').layoutWeight(1)
-        }
-        .width('0vp').layoutWeight(5.5).padding('6vp')
-        .backgroundColor('#fafafa').borderRadius('12vp').border({ width: '1vp', color: '#e5e5e5' })
+      Scroll() {
+        Column({ space: '24vp' }) {
+          VideoComponents({ showControls: false, videoWidth: '100%', videoHeight: '230vp' })
+            .width('100%').borderRadius('24vp')
 
-        // 右侧：控制面板
-        Column({ space: '6vp' }) {
-          // 状态栏
-          Row() {
-            Text(this.trackingStatus)
-              .fontSize('13fp').fontWeight(FontWeight.Bold).fontColor('#ffffff')
-          }
-          .width('100%').padding('8vp')
-          .backgroundColor(this.isFollowing ? (this.hasTarget ? '#22c55e' : '#eab308')
-            : (this.hasTarget ? '#3b82f6' : (this.isDetectMode ? '#888888' : '#999999')))
-          .borderRadius('6vp').justifyContent(FlexAlign.Center)
+          Column({ space: '14vp' }) {
+            Row() {
+              Column({ space: '5vp' }) {
+                Text('编队状态').fontSize('12fp').fontWeight(FontWeight.Bold).fontColor('#707072')
+                Text(this.trackingStatus).fontSize('22fp').fontWeight(FontWeight.Bold).fontColor('#111111')
+              }.alignItems(HorizontalAlign.Start).layoutWeight(1)
+              Column({ space: '4vp' }) {
+                Circle({ width: '9vp', height: '9vp' }).fill(this.isFollowing || this.isDetectMode ? '#007d48' : '#9e9ea0')
+                Text(this.isFollowing ? '跟随' : (this.isDetectMode ? '检测' : '待机'))
+                  .fontSize('11fp').fontWeight(FontWeight.Bold)
+                  .fontColor(this.isFollowing || this.isDetectMode ? '#007d48' : '#707072')
+              }.alignItems(HorizontalAlign.Center)
+            }.width('100%')
+            Row({ space: '10vp' }) {
+              MetricTile({ label: '置信度', value: this.hasTarget ? this.targetConf.toFixed(2) : '---' })
+              MetricTile({ label: '目标高度', value: this.hasTarget ? `${Math.round(this.targetHeight)}` : '---' })
+              MetricTile({ label: '丢失帧', value: `${this.lostFrames}` })
+            }.width('100%')
+            Text(`模型 ${this.modelLoaded ? '已加载' : '未加载'} · 控制 ${this.controlMode}`)
+              .fontSize('13fp').fontColor('#707072').width('100%')
+            if (this.isDetectMode && !this.isFollowing && !this.hasTarget) {
+              Text('正在扫描前方领航车。').fontSize('13fp').fontColor('#707072').width('100%')
+            }
+          }.width('100%').padding('20vp').backgroundColor('#f5f5f5').borderRadius('24vp')
 
-          // 检测信息
-          Row({ space: '4vp' }) {
-            MetricTile({ label: '置信度', value: this.hasTarget ? this.targetConf.toFixed(2) : '---' })
-            MetricTile({ label: '高度px', value: this.hasTarget ? `${Math.round(this.targetHeight)}` : '---' })
-            MetricTile({ label: '丢失帧', value: `${this.lostFrames}` })
-          }
+          Column({ space: '12vp' }) {
+            Text('控制输出').fontSize('12fp').fontWeight(FontWeight.Bold).fontColor('#707072').width('100%')
+            Row({ space: '10vp' }) {
+              GaugeTile({ label: '速度', value: this.cmdLinear, min: -0.5, max: 1.0 })
+              GaugeTile({ label: '转向', value: this.cmdAngular, min: -1.0, max: 1.0 })
+            }.width('100%')
+          }.width('100%').padding('18vp').backgroundColor('#f5f5f5').borderRadius('24vp')
 
-          // 控制输出
-          Text('控制输出').fontSize('11fp').fontColor('#999999').alignSelf(ItemAlign.Start)
-          Row({ space: '6vp' }) {
-            GaugeTile({ label: '速度', value: this.cmdLinear, min: -0.5, max: 1.0, color: '#2563eb' })
-            GaugeTile({ label: '转向', value: this.cmdAngular, min: -1.0, max: 1.0, color: '#dc2626' })
-          }
-
-          // 模式信息
-          Text(`模型: ${this.modelLoaded ? '已加载' : '未加载'} | 控制: ${this.controlMode}`)
-            .fontSize('9fp').fontColor('#cccccc')
-
-          // 提示文字
-          if (this.isDetectMode && !this.isFollowing && !this.hasTarget) {
-            Text('正在扫描前方领航车...').fontSize('10fp').fontColor('#3b82f6')
-              .padding({ top: '4vp', bottom: '4vp' })
-          }
-
-          // 按钮
-          Row({ space: '5vp' }) {
+          Column({ space: '10vp' }) {
             if (this.isDetectMode && !this.isFollowing) {
-              // 检测模式：手动开始 + 取消
               Button('开始跟随')
-                .layoutWeight(1).fontSize('12fp').fontColor('#ffffff')
-                .backgroundColor(this.hasTarget ? '#22c55e' : '#888888')
-                .borderRadius('6vp').height('34vp')
+                .width('100%').height('52vp').fontSize('16fp').fontWeight(FontWeight.Medium)
+                .fontColor('#ffffff').backgroundColor(this.hasTarget ? '#111111' : '#9e9ea0').borderRadius('28vp')
                 .onClick(() => { this.startFormation(); })
               Button('取消检测')
-                .layoutWeight(1).fontSize('12fp').fontColor('#ffffff').backgroundColor('#dc2626')
-                .borderRadius('6vp').height('34vp')
+                .width('100%').height('48vp').fontSize('15fp').fontColor('#111111')
+                .backgroundColor('#f5f5f5').borderRadius('26vp')
                 .onClick(() => { this.stopAll(); })
             } else if (this.isFollowing) {
-              // 跟随模式：停止
               Button('停止跟随')
-                .layoutWeight(1).fontSize('12fp').fontColor('#ffffff')
-                .backgroundColor('#dc2626')
-                .borderRadius('6vp').height('34vp')
+                .width('100%').height('52vp').fontSize('16fp').fontWeight(FontWeight.Medium)
+                .fontColor('#ffffff').backgroundColor('#111111').borderRadius('28vp')
                 .onClick(() => { this.stopFormation(); })
               Button('急停')
-                .layoutWeight(1).fontSize('12fp').fontColor('#ffffff').backgroundColor('#1a1a1a')
-                .borderRadius('6vp').height('34vp')
+                .width('100%').height('48vp').fontSize('15fp').fontColor('#111111')
+                .backgroundColor('#f5f5f5').borderRadius('26vp')
                 .onClick(() => { this.stopFormation(); })
             } else {
-              // 待机模式
               Button('重新检测')
-                .layoutWeight(1).fontSize('12fp').fontColor('#ffffff').backgroundColor('#3b82f6')
-                .borderRadius('6vp').height('34vp')
+                .width('100%').height('52vp').fontSize('16fp').fontWeight(FontWeight.Medium)
+                .fontColor('#ffffff').backgroundColor('#111111').borderRadius('28vp')
                 .onClick(() => { this.restartDetect(); })
             }
-          }
 
-          Row({ space: '5vp' }) {
-            Button(this.showConfig ? '收起配置' : 'PID 配置')
-              .layoutWeight(1).fontSize('12fp').fontColor('#666666').backgroundColor('#f1f1f1')
-              .borderRadius('6vp').height('32vp')
-              .onClick(() => { this.showConfig = !this.showConfig; })
-            Button('刷新').layoutWeight(1).fontSize('12fp').fontColor('#666666').backgroundColor('#f1f1f1')
-              .borderRadius('6vp').height('32vp').onClick(() => { this.getStatus(); })
-          }
-        }
-        .width('0vp').layoutWeight(4.5).padding('8vp')
-        .backgroundColor('#ffffff').borderRadius('12vp').border({ width: '1vp', color: '#e5e5e5' })
-      }
-      .width('100%').layoutWeight(1).padding('8vp')
+            Row({ space: '10vp' }) {
+              Button(this.showConfig ? '收起配置' : 'PID 配置')
+                .layoutWeight(1).height('46vp').fontSize('15fp').fontColor('#111111')
+                .backgroundColor('#f5f5f5').borderRadius('24vp')
+                .onClick(() => { this.showConfig = !this.showConfig; })
+              Button('刷新')
+                .layoutWeight(1).height('46vp').fontSize('15fp').fontColor('#111111')
+                .backgroundColor('#f5f5f5').borderRadius('24vp')
+                .onClick(() => { this.getStatus(); })
+            }.width('100%')
+          }.width('100%')
 
-      // ====== PID 配置面板 ======
-      if (this.showConfig) {
-        Column() {
-          this.ConfigDivider('跟随参数')
-          Row({ space: '8vp' }) {
-            this.SliderItem('目标高度', this.targetBboxHeight, 50, 400, (v: number) => { this.targetBboxHeight = v; })
-            this.SliderItem('置信阈值', this.confidenceThreshold, 0.3, 0.9, (v: number) => { this.confidenceThreshold = v; })
+          if (this.showConfig) {
+            Column({ space: '14vp' }) {
+              this.ConfigDivider('跟随参数')
+              Row({ space: '10vp' }) {
+                this.SliderItem('目标高度', this.targetBboxHeight, 50, 400, (v: number) => { this.targetBboxHeight = v; })
+                this.SliderItem('置信阈值', this.confidenceThreshold, 0.3, 0.9, (v: number) => { this.confidenceThreshold = v; })
+              }
+              Row({ space: '10vp' }) {
+                this.SliderItem('最大丢失', this.maxLostFrames, 2, 15, (v: number) => { this.maxLostFrames = v; })
+                this.SliderItem('跳帧', this.frameSkip, 1, 8, (v: number) => { this.frameSkip = v; })
+              }
+              this.ConfigDivider('速度 PID')
+              Row({ space: '10vp' }) {
+                this.SliderItem('Kp', this.speedKp, 0, 3, (v: number) => { this.speedKp = v; })
+                this.SliderItem('Ki', this.speedKi, 0, 0.5, (v: number) => { this.speedKi = v; })
+              }
+              this.SliderItem('Kd', this.speedKd, 0, 1, (v: number) => { this.speedKd = v; })
+              this.ConfigDivider('转向 PID')
+              Row({ space: '10vp' }) {
+                this.SliderItem('Kp', this.steerKp, 0, 3, (v: number) => { this.steerKp = v; })
+                this.SliderItem('Ki', this.steerKi, 0, 0.5, (v: number) => { this.steerKi = v; })
+              }
+              this.SliderItem('Kd', this.steerKd, 0, 1, (v: number) => { this.steerKd = v; })
+              Button('应用配置')
+                .width('100%').height('52vp').fontSize('16fp').fontWeight(FontWeight.Medium)
+                .fontColor('#ffffff').backgroundColor('#111111').borderRadius('28vp')
+                .onClick(() => { this.applyConfig(); })
+            }.width('100%').padding('20vp').backgroundColor('#f5f5f5').borderRadius('24vp')
           }
-          Row({ space: '8vp' }) {
-            this.SliderItem('最大丢失', this.maxLostFrames, 2, 15, (v: number) => { this.maxLostFrames = v; })
-            this.SliderItem('跳帧', this.frameSkip, 1, 8, (v: number) => { this.frameSkip = v; })
-          }
-
-          this.ConfigDivider('速度 PID')
-          Row({ space: '8vp' }) {
-            this.SliderItem('Kp', this.speedKp, 0, 3, (v: number) => { this.speedKp = v; })
-            this.SliderItem('Ki', this.speedKi, 0, 0.5, (v: number) => { this.speedKi = v; })
-            this.SliderItem('Kd', this.speedKd, 0, 1, (v: number) => { this.speedKd = v; })
-          }
-
-          this.ConfigDivider('转向 PID')
-          Row({ space: '8vp' }) {
-            this.SliderItem('Kp', this.steerKp, 0, 3, (v: number) => { this.steerKp = v; })
-            this.SliderItem('Ki', this.steerKi, 0, 0.5, (v: number) => { this.steerKi = v; })
-            this.SliderItem('Kd', this.steerKd, 0, 1, (v: number) => { this.steerKd = v; })
-          }
-
-          Button('应用配置')
-            .width('100%').fontSize('12fp').fontColor('#ffffff').backgroundColor('#1a1a1a')
-            .borderRadius('8vp').height('34vp').margin({ top: '8vp' })
-            .onClick(() => { this.applyConfig(); })
-        }
-        .width('100%').padding('10vp')
-        .backgroundColor('#ffffff').border({ width: { top: '1vp' }, color: '#e5e5e5' })
-      }
-    }
-    .width('100%').height('100%').backgroundColor('#ffffff')
+        }.width('100%').padding({ left: '20vp', right: '20vp', bottom: '36vp' })
+      }.layoutWeight(1).width('100%').scrollBar(BarState.Auto)
+    }.width('100%').height('100%').backgroundColor('#ffffff')
   }
 
   @Builder ConfigDivider(label: string) {
-    Row({ space: '6vp' }) {
-      Text(label).fontSize('11fp').fontWeight(FontWeight.Bold).fontColor('#666666')
-      Divider().layoutWeight(1).color('#e5e5e5')
-    }
-    .width('100%').margin({ top: '8vp', bottom: '4vp' })
+    Text(label).fontSize('12fp').fontWeight(FontWeight.Bold).fontColor('#707072').width('100%')
   }
 
   @Builder SliderItem(label: string, value: number, min: number, max: number, onChange: (v: number) => void) {
-    Column({ space: '3vp' }) {
+    Column({ space: '6vp' }) {
       Row() {
-        Text(label).fontSize('10fp').fontColor('#999999')
+        Text(label).fontSize('11fp').fontWeight(FontWeight.Bold).fontColor('#707072')
         Blank()
-        Text(max <= 1 ? value.toFixed(2) : `${Math.round(value)}`).fontSize('10fp').fontColor('#333333')
-      }
-      .width('100%')
-      Slider({
-        value: value,
-        min: min,
-        max: max,
-        step: max <= 1 ? 0.01 : 1,
-      })
-        .width('100%').blockColor('#1a1a1a').trackColor('#e5e5e5')
+        Text(max <= 1 ? value.toFixed(2) : `${Math.round(value)}`).fontSize('11fp').fontColor('#111111')
+      }.width('100%')
+      Slider({ value: value, min: min, max: max, step: max <= 1 ? 0.01 : 1 })
+        .width('100%').blockColor('#111111').trackColor('#e5e5e5')
         .onChange((val: number) => { onChange(val); })
-    }
-    .layoutWeight(1)
+    }.layoutWeight(1)
   }
 
-  @Builder StatusDot() {
-    Circle({ width: '7vp', height: '7vp' })
-      .fill(this.isFollowing ? (this.hasTarget ? '#22c55e' : '#eab308') :
-        (this.hasTarget ? '#3b82f6' : '#999999'))
-  }
-
-  // ====== 业务逻辑 ======
   private async startDetect(): Promise<void> {
     const result = await this.callService(http.RequestMethod.POST, '/formation/detect');
     if (result.includes('error') || result.includes('失败')) {
@@ -292,12 +243,7 @@ struct FormationControl {
     this.dialogShown = false;
     this.cmdLinear = 0; this.cmdAngular = 0;
   }
-
-  private async restartDetect(): Promise<void> {
-    this.dialogShown = false;
-    await this.startDetect();
-  }
-
+  private async restartDetect(): Promise<void> { this.dialogShown = false; await this.startDetect(); }
   private async startFormation(): Promise<void> {
     const result = await this.callService(http.RequestMethod.POST, '/formation/start');
     if (result.includes('error') || result.includes('失败')) {
@@ -309,27 +255,18 @@ struct FormationControl {
     promptAction.showToast({ message: '编队跟随已启动' });
     await this.getStatus();
   }
-
   private async stopFormation(): Promise<void> {
     await this.callService(http.RequestMethod.POST, '/formation/stop');
-    this.isFollowing = false;
-    this.isDetectMode = false;
-    this.trackingStatus = '已停止';
-    this.cmdLinear = 0; this.cmdAngular = 0;
-    this.hasTarget = false; this.lostFrames = 0;
-    this.dialogShown = false;
+    this.isFollowing = false; this.isDetectMode = false; this.trackingStatus = '已停止';
+    this.cmdLinear = 0; this.cmdAngular = 0; this.hasTarget = false; this.lostFrames = 0; this.dialogShown = false;
     promptAction.showToast({ message: '已停止并急停' });
   }
-
   private async stopAll(): Promise<void> {
     await this.callService(http.RequestMethod.POST, '/formation/stop');
-    this.isFollowing = false;
-    this.isDetectMode = false;
-    this.trackingStatus = '已取消';
+    this.isFollowing = false; this.isDetectMode = false; this.trackingStatus = '已取消';
     this.cmdLinear = 0; this.cmdAngular = 0;
     promptAction.showToast({ message: '已取消检测' });
   }
-
   private async getStatus(): Promise<void> {
     const result = await this.callService(http.RequestMethod.GET, '/formation/status');
     if (!result || result.includes('失败')) return;
@@ -342,37 +279,20 @@ struct FormationControl {
       this.lostFrames = data.lost_frames;
       this.isDetectMode = data.detect_only;
       this.isFollowing = data.enabled && !data.detect_only;
-
       if (data.target) {
         this.hasTarget = true;
         this.targetConf = data.target.confidence;
         this.targetHeight = data.target.bbox ? (data.target.bbox[3] - data.target.bbox[1]) : 0;
       } else {
-        this.hasTarget = false;
-        this.targetConf = 0;
-        this.targetHeight = 0;
+        this.hasTarget = false; this.targetConf = 0; this.targetHeight = 0;
       }
-
-      // 更新状态文字
-      if (!data.enabled) {
-        this.trackingStatus = '待机';
-      } else if (data.detect_only && !this.isFollowing) {
-        this.trackingStatus = this.hasTarget ? '发现领航车!' : '扫描中...';
-      } else if (this.isFollowing) {
-        if (!this.hasTarget) {
-          this.trackingStatus = this.lostFrames > 0 ? `丢失 ${this.lostFrames}` : '搜索中...';
-        } else {
-          this.trackingStatus = '跟随中';
-        }
-      }
-
-      // 检测模式下发现目标 → 弹窗
+      if (!data.enabled) this.trackingStatus = '待机';
+      else if (data.detect_only && !this.isFollowing) this.trackingStatus = this.hasTarget ? '发现领航车' : '扫描中...';
+      else if (this.isFollowing) this.trackingStatus = !this.hasTarget ? (this.lostFrames > 0 ? `丢失 ${this.lostFrames}` : '搜索中...') : '跟随中';
       if (data.detect_only && this.hasTarget && !this.isFollowing && !this.dialogShown) {
         this.dialogShown = true;
         this.showConfirmDialog();
       }
-
-      // 同步配置
       if (data.config) {
         this.targetBboxHeight = data.config.target_bbox_height;
         this.confidenceThreshold = data.config.confidence_threshold;
@@ -383,32 +303,17 @@ struct FormationControl {
       }
     } catch { /* parse error */ }
   }
-
   private showConfirmDialog(): void {
     AlertDialog.show({
       title: '检测到领航车',
       message: `置信度: ${this.targetConf.toFixed(2)}\n是否开始编队跟随？`,
       autoCancel: false,
       alignment: DialogAlignment.Center,
-      primaryButton: {
-        value: '开始跟随',
-        fontColor: '#ffffff',
-        backgroundColor: '#22c55e',
-        action: () => { this.startFormation(); }
-      },
-      secondaryButton: {
-        value: '忽略',
-        fontColor: '#666666',
-        backgroundColor: '#f1f1f1',
-        action: () => {
-          this.dialogShown = false;
-          // 不停止检测，只是关闭弹窗继续扫描
-        }
-      },
+      primaryButton: { value: '开始跟随', fontColor: '#ffffff', backgroundColor: '#111111', action: () => { this.startFormation(); } },
+      secondaryButton: { value: '忽略', fontColor: '#111111', backgroundColor: '#f5f5f5', action: () => { this.dialogShown = false; } },
       cancel: () => { this.dialogShown = false; }
     });
   }
-
   private async applyConfig(): Promise<void> {
     const payload: FormationConfigPayload = {
       target_bbox_height: this.targetBboxHeight,
@@ -422,7 +327,6 @@ struct FormationControl {
     promptAction.showToast({ message: '配置已应用' });
     await this.getStatus();
   }
-
   private async callService(method: http.RequestMethod, path: string, payload?: Object): Promise<string> {
     const requestUrl = `${this.serviceBaseUrl.trim().replace(/\/$/, '')}${path}`;
     const httpRequest = http.createHttp();
@@ -440,18 +344,15 @@ struct FormationControl {
   }
 }
 
-// ---- 公共子组件 ----
 @Component
 struct MetricTile {
   @Prop label: string = '';
   @Prop value: string = '';
-
   build() {
-    Column({ space: '2vp' }) {
-      Text(this.value).fontSize('14fp').fontWeight(FontWeight.Bold).fontColor('#111111').maxLines(1)
-      Text(this.label).fontSize('9fp').fontColor('#999999')
-    }
-    .layoutWeight(1).padding('6vp').backgroundColor('#fafafa').borderRadius('6vp')
+    Column({ space: '5vp' }) {
+      Text(this.value).fontSize('16fp').fontWeight(FontWeight.Bold).fontColor('#111111').maxLines(1)
+      Text(this.label).fontSize('9fp').fontWeight(FontWeight.Bold).fontColor('#707072')
+    }.layoutWeight(1).padding('14vp').backgroundColor('#ffffff').borderRadius('18vp').alignItems(HorizontalAlign.Start)
   }
 }
 
@@ -461,20 +362,12 @@ struct GaugeTile {
   @Prop value: number = 0;
   @Prop min: number = -1;
   @Prop max: number = 1;
-  @Prop color: string = '#2563eb';
-
   build() {
-    Column({ space: '3vp' }) {
-      Text(this.value.toFixed(2)).fontSize('13fp').fontWeight(FontWeight.Bold)
-        .fontColor(Math.abs(this.value) > 0.01 ? this.color : '#999999')
-      Text(this.label).fontSize('9fp').fontColor('#999999')
-      Progress({
-        value: Math.abs(this.value),
-        total: (this.max - this.min),
-        type: ProgressType.Linear
-      })
-        .width('100%').height('3vp').color(this.color)
-    }
-    .layoutWeight(1).padding('6vp').backgroundColor('#fafafa').borderRadius('6vp')
+    Column({ space: '8vp' }) {
+      Text(this.value.toFixed(2)).fontSize('18fp').fontWeight(FontWeight.Bold).fontColor('#111111')
+      Text(this.label).fontSize('10fp').fontWeight(FontWeight.Bold).fontColor('#707072')
+      Progress({ value: Math.abs(this.value), total: Math.max(Math.abs(this.min), Math.abs(this.max)), type: ProgressType.Linear })
+        .width('100%').height('4vp').color('#111111').backgroundColor('#e5e5e5')
+    }.layoutWeight(1).padding('16vp').backgroundColor('#ffffff').borderRadius('18vp').alignItems(HorizontalAlign.Start)
   }
 }

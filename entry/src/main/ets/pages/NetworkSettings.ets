@@ -5,11 +5,9 @@ import router from '@ohos.router'
 import socket from '@ohos.net.socket'
 import { PreferencesUtils } from '../utils/PreferencesUtils'
 import { VideoComponents } from '../components/VideoComponents'
-import { ButtonShadow } from '../styles/styles'
 import { MyUtils } from '../utils/MyUtils'
 import util from '@ohos.util'
 
-// ---- 小车信息 ----
 interface CarInfo {
   name: string; ip: string; tcp_port: number; monitor_port: number; video_port: number;
 }
@@ -29,106 +27,104 @@ struct NetworkSettings {
   aboutToDisappear(): void { this.stopScan() }
 
   build() {
-    Column({ space: '12vp' }) {
-      // 顶栏
-      Row() {
-        Button('返回').backgroundColor('#111827').fontColor('#ffffff')
-          .borderRadius('12vp').shadow(ButtonShadow)
+    Column() {
+      Row({ space: '12vp' }) {
+        Button('<')
+          .width('44vp').height('44vp').fontSize('22fp').fontColor('#111111')
+          .backgroundColor('#f5f5f5').borderRadius('22vp')
           .onClick(() => { this.stopScan(); router.back(); })
-          .padding({ left: '14vp', right: '14vp', top: '10vp', bottom: '10vp' })
-      }
-      .width('100%').padding({ top: '24vp', left: '16vp', right: '16vp', bottom: '4vp' })
+        Column() {
+          Text('连接配置').fontSize('11fp').fontWeight(FontWeight.Bold).fontColor('#707072')
+          Text('网络设置').fontSize('26fp').fontWeight(FontWeight.Bold).fontColor('#111111')
+        }.alignItems(HorizontalAlign.Start).layoutWeight(1)
+      }.width('100%').padding({ left: '20vp', right: '20vp', top: '20vp', bottom: '16vp' })
 
       Scroll() {
-        Column({ space: '14vp' }) {
-          // ====== 扫描区域 ======
-          Column({ space: '10vp' }) {
-            Row({ space: '10vp' }) {
-              Text('发现小车').fontSize('16fp').fontWeight(FontWeight.Bold).fontColor('#111827')
-              Blank()
+        Column({ space: '24vp' }) {
+          Column({ space: '14vp' }) {
+            Row() {
+              Column({ space: '5vp' }) {
+                Text('自动发现').fontSize('12fp').fontWeight(FontWeight.Bold).fontColor('#707072')
+                Text('扫描附近小车').fontSize('22fp').fontWeight(FontWeight.Bold).fontColor('#111111')
+              }.alignItems(HorizontalAlign.Start).layoutWeight(1)
               Button(this.scanText)
-                .fontSize('12fp').fontColor('#ffffff')
-                .backgroundColor(this.isScanning ? '#dc2626' : '#2563eb')
-                .borderRadius('10vp')
-                .padding({ left: '14vp', right: '14vp', top: '8vp', bottom: '8vp' })
+                .height('44vp').fontSize('14fp').fontWeight(FontWeight.Medium)
+                .fontColor(this.isScanning ? '#111111' : '#ffffff')
+                .backgroundColor(this.isScanning ? '#ffffff' : '#111111')
+                .borderRadius('24vp').padding({ left: '18vp', right: '18vp' })
                 .onClick(() => { this.isScanning ? this.stopScan() : this.startScan() })
-            }
-            .width('100%')
+            }.width('100%')
 
             if (this.isScanning) {
-              Row({ space: '6vp' }) {
-                LoadingProgress().width('14vp').height('14vp').color('#2563eb')
-                Text('正在扫描附近小车...').fontSize('12fp').fontColor('#6b7280')
-              }
-              .width('100%').padding('6vp')
+              Row({ space: '8vp' }) {
+                LoadingProgress().width('16vp').height('16vp').color('#111111')
+                Text('正在扫描附近小车...').fontSize('13fp').fontColor('#707072')
+              }.width('100%').padding({ top: '6vp', bottom: '6vp' })
             }
 
-            // 小车列表
             if (this.carList.length > 0) {
-              List({ space: '8vp' }) {
+              List({ space: '10vp' }) {
                 ForEach(this.carList, (car: CarInfo, index: number) => {
                   ListItem() { this.CarCard(car) }
                 }, (car: CarInfo, index: number) => car.ip + car.name)
-              }
-              .width('100%').height('220vp').divider({ strokeWidth: '1vp', color: '#f1f5f9' })
+              }.width('100%').height('220vp')
             } else if (!this.isScanning) {
-              Text('点击「开始扫描」发现附近小车').fontSize('13fp').fontColor('#9ca3af')
-                .padding('20vp').width('100%').textAlign(TextAlign.Center)
+              Text('点击开始扫描，自动读取小车 IP、控制端口和视频端口。')
+                .fontSize('13fp').fontColor('#707072')
+                .padding('18vp').width('100%').textAlign(TextAlign.Center)
+                .backgroundColor('#ffffff').borderRadius('18vp')
             }
           }
-          .padding('16vp').backgroundColor('#f8fafc').borderRadius('16vp')
-          .border({ width: '1vp', color: '#e2e8f0' })
+          .width('100%').padding('20vp').backgroundColor('#f5f5f5').borderRadius('24vp')
 
-          // ====== 手动输入 ======
-          Row({ space: '8vp' }) {
-            Text('手动配置').fontSize('16fp').fontWeight(FontWeight.Bold).fontColor('#111827')
-            Blank()
-            Button(this.showManual ? '收起' : '展开')
-              .fontSize('12fp').fontColor('#6b7280').backgroundColor('#f1f5f9')
-              .borderRadius('8vp').padding({ left: '12vp', right: '12vp', top: '6vp', bottom: '6vp' })
-              .onClick(() => { this.showManual = !this.showManual })
-          }
-          .width('100%')
+          Column({ space: '12vp' }) {
+            Row() {
+              Column({ space: '5vp' }) {
+                Text('手动配置').fontSize('12fp').fontWeight(FontWeight.Bold).fontColor('#707072')
+                Text('填写连接信息').fontSize('22fp').fontWeight(FontWeight.Bold).fontColor('#111111')
+              }.alignItems(HorizontalAlign.Start).layoutWeight(1)
+              Button(this.showManual ? '收起' : '展开')
+                .height('42vp').fontSize('14fp').fontColor('#111111')
+                .backgroundColor('#ffffff').borderRadius('22vp').padding({ left: '18vp', right: '18vp' })
+                .onClick(() => { this.showManual = !this.showManual })
+            }.width('100%')
 
-          if (this.showManual) {
-            LoginComponent({
-              connectSuccessRun: () => { router.pushUrl({ url: 'pages/Index' }) },
-              connectfailRun: () => { if (MyUtils.isDebug) router.pushUrl({ url: 'pages/Index' }) }
-            })
+            if (this.showManual) {
+              LoginComponent({
+                connectSuccessRun: () => { router.pushUrl({ url: 'pages/Index' }) },
+                connectfailRun: () => { if (MyUtils.isDebug) router.pushUrl({ url: 'pages/Index' }) }
+              })
+            }
           }
+          .width('100%').padding('20vp').backgroundColor('#f5f5f5').borderRadius('24vp')
         }
-        .padding({ left: '16vp', right: '16vp', bottom: '20vp' })
-      }
+        .width('100%').padding({ left: '20vp', right: '20vp', bottom: '36vp' })
+      }.layoutWeight(1).width('100%').scrollBar(BarState.Auto)
     }
     .width('100%').height('100%').backgroundColor('#ffffff')
   }
 
   @Builder CarCard(car: CarInfo) {
-    Row({ space: '10vp' }) {
-      Column() {
-        Text(car.name)
-          .fontSize('13fp').fontWeight(FontWeight.Bold).fontColor('#111827').maxLines(1)
-        Text(car.ip)
-          .fontSize('11fp').fontColor('#6b7280')
-      }
-      .alignItems(HorizontalAlign.Start).layoutWeight(1)
+    Row({ space: '12vp' }) {
+      Column({ space: '3vp' }) {
+        Text(car.name).fontSize('16fp').fontWeight(FontWeight.Bold).fontColor('#111111').maxLines(1)
+        Text(car.ip).fontSize('13fp').fontColor('#707072')
+      }.alignItems(HorizontalAlign.Start).layoutWeight(1)
 
       Column({ space: '2vp' }) {
-        Text('T:' + car.tcp_port.toString()).fontSize('9fp').fontColor('#9ca3af')
-        Text('V:' + car.video_port.toString()).fontSize('9fp').fontColor('#9ca3af')
-      }
+        Text('TCP ' + car.tcp_port.toString()).fontSize('10fp').fontWeight(FontWeight.Bold).fontColor('#707072')
+        Text('视频 ' + car.video_port.toString()).fontSize('10fp').fontWeight(FontWeight.Bold).fontColor('#707072')
+      }.alignItems(HorizontalAlign.End)
 
       Button('连接')
-        .fontSize('12fp').fontColor('#ffffff').backgroundColor('#22c55e')
-        .borderRadius('8vp').padding({ left: '12vp', right: '12vp', top: '6vp', bottom: '6vp' })
+        .height('42vp').fontSize('14fp').fontColor('#ffffff').backgroundColor('#111111')
+        .borderRadius('22vp').padding({ left: '18vp', right: '18vp' })
         .onClick(() => { this.selectCar(car) })
     }
-    .width('100%').padding('10vp')
-    .backgroundColor('#ffffff').borderRadius('10vp')
-    .border({ width: '1vp', color: '#e5e7eb' })
+    .width('100%').padding('14vp')
+    .backgroundColor('#ffffff').borderRadius('18vp')
   }
 
-  // ====== UDP 扫描 ======
   private async startScan(): Promise<void> {
     this.carList = []
     this.seenCars.clear()
@@ -194,14 +190,10 @@ struct NetworkSettings {
   }
 }
 
-// ====== 手动输入组件（保留原有逻辑） ======
 @Component
 struct LoginComponent {
-  TextWidth: Length = '80vp'
-  FontSize: Length = '20fp'
-  BlankWidth: Length = '10vp'
   @State ip: string = '192.168.1.11'
-  @State tcpPort: string = '6000'
+  @State tcpPort: string = '6001'
   @State videoPort: string = '6500'
   connectSuccessRun: () => void = () => {}
   connectfailRun: () => void = () => {}
@@ -209,39 +201,20 @@ struct LoginComponent {
   aboutToAppear(): void { this.readNetConfig() }
 
   build() {
-    Column({ space: '16vp' }) {
-      Row({ space: '12vp' }) {
-        Text('IP:').width(this.TextWidth).textAlign(TextAlign.End).fontSize(this.FontSize).fontColor('#111827')
-        Blank().width(this.BlankWidth)
-        TextInput({ text: this.ip }).onChange((v) => { this.ip = v })
-          .layoutWeight(1).backgroundColor('#f1f5f9').fontColor('#111827')
-          .padding({ left: '14vp', right: '14vp', top: '12vp', bottom: '12vp' })
-      }
-
-      Row({ space: '12vp' }) {
-        Text('Port:').width(this.TextWidth).textAlign(TextAlign.End).fontSize(this.FontSize).fontColor('#111827')
-        Blank().width(this.BlankWidth)
-        TextInput({ text: this.tcpPort }).onChange((v) => { this.tcpPort = v })
-          .layoutWeight(1).backgroundColor('#f1f5f9').fontColor('#111827')
-          .padding({ left: '14vp', right: '14vp', top: '12vp', bottom: '12vp' })
-      }
-
-      Row({ space: '12vp' }) {
-        Text('Video:').width(this.TextWidth).textAlign(TextAlign.End).fontSize(this.FontSize).fontColor('#111827')
-        Blank().width(this.BlankWidth)
-        TextInput({ text: this.videoPort }).onChange((v) => { this.videoPort = v })
-          .layoutWeight(1).backgroundColor('#f1f5f9').fontColor('#111827')
-          .padding({ left: '14vp', right: '14vp', top: '12vp', bottom: '12vp' })
-      }
-
-      Button('连接')
-        .width('200vp').backgroundColor('#2563eb').fontColor('#ffffff')
-        .shadow(ButtonShadow).borderRadius('16vp')
-        .onClick(() => { this.saveNetConfig(); this.initTcpConfig();
-          VideoComponents.ip = this.ip; VideoComponents.port = Number.parseInt(this.videoPort) })
-    }
-    .padding('24vp').backgroundColor('#f8fafc').borderRadius('24vp')
-    .border({ width: '1vp', color: '#e2e8f0' })
+    Column({ space: '14vp' }) {
+      NetworkField({ label: '车辆 IP 地址', value: $ip })
+      NetworkField({ label: 'TCP 端口', value: $tcpPort })
+      NetworkField({ label: '视频端口', value: $videoPort })
+      Button('连接小车')
+        .width('100%').height('52vp').fontSize('16fp').fontWeight(FontWeight.Medium)
+        .fontColor('#ffffff').backgroundColor('#111111').borderRadius('28vp')
+        .onClick(() => {
+          this.saveNetConfig()
+          this.initTcpConfig()
+          VideoComponents.ip = this.ip
+          VideoComponents.port = Number.parseInt(this.videoPort)
+        })
+    }.width('100%')
   }
 
   private async initTcpConfig(): Promise<void> {
@@ -268,5 +241,22 @@ struct LoginComponent {
     await PreferencesUtils.getInstance().netUtils.setIp(this.ip)
     await PreferencesUtils.getInstance().netUtils.setTcpPort(this.tcpPort)
     await PreferencesUtils.getInstance().netUtils.setVideoPort(this.videoPort)
+  }
+}
+
+@Component
+struct NetworkField {
+  label: string = ''
+  @Link value: string
+
+  build() {
+    Column({ space: '8vp' }) {
+      Text(this.label).fontSize('11fp').fontWeight(FontWeight.Bold).fontColor('#707072')
+      TextInput({ text: this.value })
+        .height('50vp').fontSize('16fp').fontColor('#111111')
+        .backgroundColor('#ffffff').borderRadius('24vp')
+        .padding({ left: '18vp', right: '18vp' })
+        .onChange((v: string) => { this.value = v })
+    }.width('100%').alignItems(HorizontalAlign.Start)
   }
 }
