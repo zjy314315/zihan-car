@@ -62,7 +62,8 @@ class TcpRosBridge:
         self.pub_cmd_debug = None
         self.pub_buzzer = None
         self.pub_tracking = None
-        self.pub_camera_switch = None`n        self.ros_node = None
+        self.pub_camera_switch = None
+        self.ros_node = None
 
     def init_ros(self):
         if not USE_ROS:
@@ -104,7 +105,9 @@ class TcpRosBridge:
         self.running = False
         if self.server_socket:
             self.server_socket.close()
-        if self.ros_node: self.ros_node.destroy_node()`n        if USE_ROS and rclpy.ok(): rclpy.shutdown()`n        print("[Server] 服务器已停止")
+        if self.ros_node: self.ros_node.destroy_node()
+        if USE_ROS and rclpy.ok(): rclpy.shutdown()
+        print("[Server] 服务器已停止")
 
     def answer_app_question(self, question):
         payload = {
