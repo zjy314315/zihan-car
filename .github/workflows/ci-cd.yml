@@ -57,4 +57,4 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Deploy and restart ROS bridge
-        run: ./scripts/deploy-car.sh
+        run: bash scripts/deploy-car.sh
