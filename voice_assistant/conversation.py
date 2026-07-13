@@ -62,7 +62,7 @@ def ask_ollama(url: str, model: str, message: str) -> str:
     return response.json()["message"]["content"].strip()
 
 
-def speak(text: str, device: str = "hw:0,0") -> None:
+def speak(text: str, device: str = "plughw:0,0") -> None:
     speaker = subprocess.Popen(["espeak-ng", "-v", "zh", "-s", "155", "--stdout", text], stdout=subprocess.PIPE)
     assert speaker.stdout is not None
     player = subprocess.Popen(["aplay", "-q", "-D", device], stdin=speaker.stdout)
