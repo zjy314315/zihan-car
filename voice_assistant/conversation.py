@@ -51,8 +51,8 @@ class Listener:
 
 def fixed_reply(message: str) -> str:
     normalized = "".join(message.split())
-    if "??" in normalized or normalized in {"??", "????", "?"}:
-        return "??,?????"
+    if "\u4f60\u597d" in normalized or normalized in {"\u60a8\u597d", "\u5c0f\u8f66\u4f60\u597d", "\u5462"}:
+        return "\u4f60\u597d\uff0c\u6211\u662f\u5c0f\u8f66\u3002"
     return ""
 
 def ask_ollama(url: str, model: str, message: str) -> str:
