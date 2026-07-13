@@ -10,7 +10,7 @@ from pathlib import Path
 import requests
 from vosk import KaldiRecognizer, Model
 
-SYSTEM_PROMPT = "你是小车上的中文语音助手。用自然、简短的中文回答，通常不超过两句话。"
+SYSTEM_PROMPT = "?????????????????????????,????????????????????????"
 
 
 def parse_args() -> argparse.Namespace:
@@ -49,8 +49,14 @@ class Listener:
         raise RuntimeError("Microphone capture stopped")
 
 
+def fixed_reply(message: str) -> str:
+    normalized = "".join(message.split())
+    if "??" in normalized or normalized in {"??", "????", "?"}:
+        return "??,?????"
+    return ""
+
 def ask_ollama(url: str, model: str, message: str) -> str:
-    payload = {"model": model, "stream": False, "options": {"num_predict": 80, "temperature": 0.3}, "messages": [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": message}]}
+    payload = {"model": model, "stream": False, "options": {"num_predict": 40, "temperature": 0.2}, "messages": [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": message}]}
     response = requests.post(url, json=payload, timeout=90)
     response.raise_for_status()
     return response.json()["message"]["content"].strip()
@@ -71,20 +77,20 @@ def main() -> int:
         print(f"Vosk model not found: {args.model_path}", file=sys.stderr)
         return 2
     listener = Listener(Model(str(args.model_path)), args.device, args.rate)
-    print("Voice assistant ready. Say '退出对话' to stop.", flush=True)
+    print("Voice assistant ready. Say '????' to stop.", flush=True)
     try:
         while True:
             phrase = listener.next_phrase()
             if not phrase:
                 continue
             print(f"You: {phrase}", flush=True)
-            if phrase in {"退出对话", "结束对话", "停止对话"}:
-                speak("好的，再见。")
+            if phrase in {"????", "????", "????"}:
+                speak("??,???")
                 return 0
             try:
-                answer = ask_ollama(args.ollama_url, args.ollama_model, phrase)
+                answer = fixed_reply(phrase) or ask_ollama(args.ollama_url, args.ollama_model, phrase)
             except requests.RequestException as error:
-                answer = "本地语言模型暂时没有响应。"
+                answer = "?????????????"
                 print(f"Ollama request failed: {error}", file=sys.stderr)
             print(f"Car: {answer}", flush=True)
             listener.reset()
