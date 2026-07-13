@@ -1,4 +1,4 @@
-# Car CI/CD
+﻿# Car CI/CD
 
 The car is a GitHub Actions self-hosted runner. It connects outbound to GitHub,
 so it does not need a fixed address, public SSH port, DDNS, or LAN discovery.
@@ -21,7 +21,7 @@ so it does not need a fixed address, public SSH port, DDNS, or LAN discovery.
    `/opt/ros/noetic/setup.bash`, for example:
 
    ```bash
-   ROS_SETUP=/opt/ros/foxy/setup.bash TCP_ROS_PORT=6001 ./scripts/setup-car-service.sh
+   ROS_SETUP=/opt/ros/noetic/setup.bash TCP_ROS_PORT=6001 ./scripts/setup-car-service.sh
    ```
 
 5. Create the `car-production` environment under `Settings > Environments` and
@@ -32,3 +32,4 @@ deploy the bridge to the registered car runner. Pull requests run validation and
 validation only.
 
 The workflow does not produce a HAP because the public HarmonyOS SDK setup action previously referenced here no longer exists. Use a DevEco-capable dedicated runner when cloud HAP builds are required.
+
