@@ -72,7 +72,7 @@ def speak(text: str) -> None:
         environment = os.environ.copy()
         environment["XDG_RUNTIME_DIR"] = "/run/user/1000"
         environment["PULSE_SERVER"] = "unix:/run/user/1000/pulse/native"
-        subprocess.run(["paplay", audio_path], env=environment, check=True)
+        subprocess.run(["paplay", "--device=alsa_output.usb-C-Media_Electronics_Inc._USB_Audio_Device-00.analog-stereo", audio_path], env=environment, check=True)
     except (OSError, subprocess.CalledProcessError) as error:
         print(f"Speech playback failed: {error}", file=sys.stderr)
     finally:
