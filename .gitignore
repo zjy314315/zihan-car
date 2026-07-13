@@ -22,3 +22,9 @@
 # Build artifacts in doc
 doc/**/*.hap
 doc/**/*.abc
+
+# Signing config (user-specific)
+build-profile.json5
+
+# Large doc files
+doc/2408/*.doc
