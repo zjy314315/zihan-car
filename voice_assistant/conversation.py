@@ -2,7 +2,7 @@
 """Offline speech conversation using Vosk, local Ollama, and espeak-ng."""
 
 import argparse
-import json
+import json`nimport os`nimport tempfile
 import subprocess
 import sys
 from pathlib import Path
@@ -62,14 +62,20 @@ def ask_ollama(url: str, model: str, message: str) -> str:
     return response.json()["message"]["content"].strip()
 
 
-def speak(text: str, device: str = "plughw:0,0") -> None:
-    speaker = subprocess.Popen(["espeak-ng", "-v", "zh", "-s", "155", "--stdout", text], stdout=subprocess.PIPE)
-    assert speaker.stdout is not None
-    player = subprocess.Popen(["aplay", "-q", "-D", device], stdin=speaker.stdout)
-    speaker.stdout.close()
-    player.wait()
-    speaker.wait()
-
+def speak(text: str) -> None:
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as audio:
+        audio_path = audio.name
+    try:
+        subprocess.run(["espeak-ng", "-v", "zh", "-s", "155", "-w", audio_path, text], check=True)
+        environment = os.environ.copy()
+        environment["XDG_RUNTIME_DIR"] = "/run/user/1000"
+        environment["PULSE_SERVER"] = "unix:/run/user/1000/pulse/native"
+        subprocess.run(["paplay", audio_path], env=environment, check=True)
+    except (OSError, subprocess.CalledProcessError) as error:
+        print(f"Speech playback failed: {error}", file=sys.stderr)
+    finally:
+        if os.path.exists(audio_path):
+            os.unlink(audio_path)
 
 def main() -> int:
     args = parse_args()
