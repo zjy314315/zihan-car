@@ -45,27 +45,52 @@ struct MusicPlayer {
   }
 
   async detectAudioServer(): Promise<void> {
-    const result = await this.callAudioApi('/audio/list?fmt=text');
-    if (result === null || result.length < 3) {
-      this.hasAudioServer = false;
-      this.statusText = '蜂鸣器模式';
-      return;
-    }
-    const lines: string[] = result.split('\n');
-    this.audioFiles = [];
-    for (let i: number = 0; i < lines.length; i++) {
-      const name: string = lines[i].trim();
-      if (name.length > 3) {
-        this.audioFiles.push({ name: name, size_kb: 0 });
+    // Try text format first, then JSON fallback
+    let result = await this.callAudioApi('/audio/list?fmt=text');
+    if (result !== null && result.length >= 3) {
+      const lines: string[] = result.split('\n');
+      this.audioFiles = [];
+      for (let i: number = 0; i < lines.length; i++) {
+        const name: string = lines[i].trim();
+        if (name.length > 3) { this.audioFiles.push({ name: name, size_kb: 0 }); }
+      }
+      if (this.audioFiles.length > 0) {
+        this.hasAudioServer = true;
+        this.statusText = `${this.audioFiles.length} 首`;
+        return;
       }
     }
-    if (this.audioFiles.length > 0) {
-      this.hasAudioServer = true;
-      this.statusText = `${this.audioFiles.length} 首`;
-    } else {
-      this.hasAudioServer = false;
-      this.statusText = '蜂鸣器模式';
+    // JSON fallback
+    result = await this.callAudioApi('/audio/list');
+    if (result !== null && result.indexOf('"files"') > 0) {
+      this.audioFiles = [];
+      // Extract filenames from JSON: "files":["a.wav","b.wav"]
+      const tag: string = '"files":[';
+      const start: number = result.indexOf(tag);
+      if (start >= 0) {
+        const end: number = result.indexOf(']', start + tag.length);
+        if (end >= 0) {
+          const list: string = result.substring(start + tag.length, end);
+          let pos: number = 0;
+          while (pos < list.length) {
+            const q1: number = list.indexOf('"', pos);
+            if (q1 < 0) { break; }
+            const q2: number = list.indexOf('"', q1 + 1);
+            if (q2 < 0) { break; }
+            const nm: string = list.substring(q1 + 1, q2);
+            if (nm.length > 3) { this.audioFiles.push({ name: nm, size_kb: 0 }); }
+            pos = q2 + 1;
+          }
+        }
+      }
+      if (this.audioFiles.length > 0) {
+        this.hasAudioServer = true;
+        this.statusText = `${this.audioFiles.length} 首`;
+        return;
+      }
     }
+    this.hasAudioServer = false;
+    this.statusText = '无音频';
   }
 
   build() {
