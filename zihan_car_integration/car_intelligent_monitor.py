@@ -975,7 +975,63 @@ def api_formation_config():
     return jsonify(service.formation_config(payload))
 
 
+# ============================================================
+# UDP 广播服务（APP 自动发现小车）
+# ============================================================
+class CarDiscoveryService:
+    """UDP 广播心跳，让 APP 自动发现小车"""
+
+    def __init__(self, port: int = 9999):
+        self.port = port
+        self.running = False
+        self.thread = None
+        self.car_name = socket.gethostname().split(".")[0]
+
+    def _get_local_ip(self) -> str:
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+            return ip
+        except Exception:
+            return "127.0.0.1"
+
+    def _broadcast_loop(self):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        print("[Discovery] UDP 广播已启动 -> 255.255.255.255:" + str(self.port))
+        while self.running:
+            try:
+                ip = self._get_local_ip()
+                msg = json.dumps({
+                    "name": self.car_name,
+                    "ip": ip,
+                    "tcp_port": 6000,
+                    "monitor_port": 5001,
+                    "video_port": 6500,
+                })
+                sock.sendto(msg.encode("utf-8"), ("255.255.255.255", self.port))
+            except Exception as e:
+                print("[Discovery] 广播异常: " + str(e))
+            time.sleep(2)
+        sock.close()
+        print("[Discovery] UDP 广播已停止")
+
+    def start(self):
+        self.running = True
+        self.thread = threading.Thread(target=self._broadcast_loop, daemon=True)
+        self.thread.start()
+
+    def stop(self):
+        self.running = False
+
+
+
 if __name__ == "__main__":
     print("启动统一智能监控服务，监听 0.0.0.0:5001")
     print("  编队控制 API: /formation/start /formation/stop /formation/status /formation/config")
+    discovery_service = CarDiscoveryService()
+    discovery_service.start()
+    print("[Discovery] 小车名称: " + discovery_service.car_name)
     app.run(host="0.0.0.0", port=5001, debug=False)
