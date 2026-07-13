@@ -185,10 +185,9 @@ class FormationController:
 
     # -------- 推理管线 --------
     def _preprocess(self, frame: np.ndarray) -> np.ndarray:
-        """BGR -> RGB, resize 640x640, normalize [0,1], HWC -> CHW, add batch"""
+        """BGR 保持, resize 640x640, 不做归一化, HWC -> CHW, add batch"""
         img = cv2.resize(frame, self.input_size)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        img = img.astype(np.float32) / 255.0
+        img = img.astype(np.float32)  # BGR 0-255, 不要归一化
         img = np.transpose(img, (2, 0, 1))          # HWC -> CHW
         img = np.expand_dims(img, axis=0)            # (1, 3, 640, 640)
         return img
@@ -619,7 +618,7 @@ class IntelligentMonitorService:
 
         return {"status": status, "name": best_name, "distance": best_distance, "confidence": best_face["confidence"], "bbox": best_face["box_coords"]}
 
-    CAMERA_STREAM_URL = "http://127.0.0.1:6500/video_feed"
+    CAMERA_STREAM_URL = "http://127.0.0.1:5000/video_feed"
 
     def _open_camera(self):
         """打开摄像头：优先从本地 MJPEG 流读取（避免与 6500 视频推流冲突），回退到直连摄像头"""
@@ -725,57 +724,44 @@ class IntelligentMonitorService:
         return {"status": "normal", "confidence": max(0.0, min(1.0, delta / 2.0)), "detail": "monitoring"}
 
     def _run_loop(self):
-        self.capture = self._open_camera()
-        if not self.capture.isOpened():
-            with self.lock:
-                self.latest_result = {
-                    "face": {"status": "camera_error", "name": "unknown"},
-                    "yolo": {"enabled": self.yolo_enabled, "people": []},
-                    "fall": {"enabled": self.fall_enabled, "status": "camera_error", "confidence": 0.0},
-                    "formation": {"enabled": self.formation_enabled, "status": "camera_error"},
-                    "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
-                }
-            self.running = False
-            return
-
+        import requests as req_lib
+        snap_url = 'http://127.0.0.1:5000/snapshot'
+        print('[Monitor] polling snapshots from: ' + snap_url)
         while self.running:
-            ret, frame = self.capture.read()
-            if not ret:
-                break
-
-            face_result = self.recognize_frame(frame) if self.face_enabled else {"status": "face_disabled", "name": "unknown", "distance": None, "confidence": None, "bbox": None}
-
-            yolo_result = {"enabled": self.yolo_enabled, "people": []}
-            if self.yolo_enabled:
-                yolo_result["people"] = self.detect_people(frame)
-
-            fall_result = self.detect_fall(frame, yolo_result["people"]) if self.fall_enabled else {"enabled": False, "status": "fall_disabled", "confidence": 0.0, "detail": "fall_disabled"}
-
-            # ---- 编队控制 ----
-            formation_result = {"enabled": self.formation_enabled, "status": "formation_disabled"}
-            if self.formation_enabled:
-                formation_result = self.formation_controller.update(frame)
-
-            with self.lock:
-                self.latest_result = {
-                    "face": face_result,
-                    "yolo": yolo_result,
-                    "fall": fall_result,
-                    "formation": formation_result,
-                    "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
-                }
-            time.sleep(0.05)
-
-        if self.capture is not None:
-            self.capture.release()
-            self.capture = None
-
+            try:
+                resp = req_lib.get(snap_url, timeout=5)
+                if resp.status_code != 200:
+                    time.sleep(0.5)
+                    continue
+                arr = np.frombuffer(resp.content, dtype=np.uint8)
+                frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+                resp.close()
+                if frame is None:
+                    time.sleep(0.1)
+                    continue
+                # Process frame
+                face_result = self.recognize_frame(frame) if self.face_enabled else {'status': 'face_disabled', 'name': 'unknown', 'distance': None, 'confidence': None, 'bbox': None}
+                yolo_result = {'enabled': self.yolo_enabled, 'people': []}
+                if self.yolo_enabled:
+                    yolo_result['people'] = self.detect_people(frame)
+                fall_result = self.detect_fall(frame, yolo_result['people']) if self.fall_enabled else {'enabled': False, 'status': 'fall_disabled', 'confidence': 0.0, 'detail': 'fall_disabled'}
+                formation_result = {'enabled': self.formation_enabled, 'status': 'formation_disabled'}
+                if self.formation_enabled:
+                    formation_result = self.formation_controller.update(frame)
+                with self.lock:
+                    self.latest_result = {'face': face_result, 'yolo': yolo_result, 'fall': fall_result, 'formation': formation_result, 'timestamp': time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())}
+                time.sleep(0.1)
+            except Exception as e:
+                print('[Monitor] snap error: ' + str(e))
+                if self.running:
+                    time.sleep(1)
+        print('[Monitor] loop exited')
         with self.lock:
-            self.latest_result["face"] = {"status": "stopped", "name": "unknown"}
-            self.latest_result["formation"] = {"enabled": False, "status": "stopped"}
+            self.latest_result['face'] = {'status': 'stopped', 'name': 'unknown'}
+            self.latest_result['formation'] = {'enabled': False, 'status': 'stopped'}
 
     def start(self) -> Dict:
-        if self.running:
+        if self.running and self.thread and self.thread.is_alive():
             return {"status": "already_running"}
         self.running = True
         self.thread = threading.Thread(target=self._run_loop, daemon=True)
@@ -933,12 +919,17 @@ def api_start_all():
 def api_formation_detect():
     """启动仅检测模式（不发指令）"""
     service.formation_enabled = True
+    if not service.running or not (service.thread and service.thread.is_alive()):
+        service.start()
     return jsonify(service.formation_controller.detect())
 
 
 @app.route("/formation/start", methods=["POST"])
 def api_formation_start():
+    if not service.running or not (service.thread and service.thread.is_alive()): service.start()
     """启动编队跟随"""
+    if not service.running or not (service.thread and service.thread.is_alive()):
+        service.start()
     return jsonify(service.enable_formation())
 
 
