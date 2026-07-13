@@ -5,24 +5,23 @@
         "name": "default",
         "type": "HarmonyOS",
         "material": {
-          "certpath": "C:\\Users\\21774\\.ohos\\config\\default_oh-ai-car-ros-app_xP26sOAf8bY8wIPpRp0aY87qoRMbY9kbGu59ABvSBwM=.cer",
+          "certpath": "C:\\Users\\12855\\.ohos\\config\\default_zihan-car_V_e1HQhvtzptumKPcPYj0M_1q1YqTJyOMJhaQD0E8BU=.cer",
           "keyAlias": "debugKey",
-          "keyPassword": "0000001B7133C0CA1C7B41128C8C7E88BF6CE7F009C90E88FC7B00EEB92E30BBAAB406442AF8A6BFD6685A",
-          "profile": "C:\\Users\\21774\\.ohos\\config\\default_oh-ai-car-ros-app_xP26sOAf8bY8wIPpRp0aY87qoRMbY9kbGu59ABvSBwM=.p7b",
+          "keyPassword": "0000001B491C8269264C1FE29738250BA85C657A540458713DF28857A61315C5547B1E18A2AEE197EA6A92",
+          "profile": "C:\\Users\\12855\\.ohos\\config\\default_zihan-car_V_e1HQhvtzptumKPcPYj0M_1q1YqTJyOMJhaQD0E8BU=.p7b",
           "signAlg": "SHA256withECDSA",
-          "storeFile": "C:\\Users\\21774\\.ohos\\config\\default_oh-ai-car-ros-app_xP26sOAf8bY8wIPpRp0aY87qoRMbY9kbGu59ABvSBwM=.p12",
-          "storePassword": "0000001BF94B07B05C086E5CB6FDB10C598A2EE51EC2002B2EC1CB73A663E77D8F238B78C7E26BD7EC5E5F"
+          "storeFile": "C:\\Users\\12855\\.ohos\\config\\default_zihan-car_V_e1HQhvtzptumKPcPYj0M_1q1YqTJyOMJhaQD0E8BU=.p12",
+          "storePassword": "0000001BBFACBBD60E696649AA617C2F3B09E7F07FC0C804A5EFDAA58126DA4DE73305C469221BBC19159F"
         }
       }
     ],
     "products": [
       {
         "name": "default",
-        "signingConfig": "default",
-        "compileSdkVersion": "6.1.0(23)",
         "compatibleSdkVersion": "5.0.0(12)",
         "runtimeOS": "HarmonyOS",
-        "targetSdkVersion": "6.1.0(23)"
+        "targetSdkVersion": "6.1.0(23)",
+        "signingConfig": "default"
       }
     ],
     "buildModeSet": [
@@ -53,7 +52,15 @@
     },
     {
       "name": "Rocker",
-      "srcPath": "./Rocker"
+      "srcPath": "./Rocker",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
     }
   ]
 }

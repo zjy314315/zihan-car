@@ -121,6 +121,15 @@ export namespace CarEncode {
 
 
   /**
+   * 蜂鸣器控制
+   * @param on 是否开启
+   * @returns
+   */
+  export function BuzzerEncode(on: boolean): string {
+    return BaseEncode('13', numberToHex(on ? 1 : 0, 2));
+  }
+
+  /**
    * 通用基础编码能力
    * @param type
    * @param data

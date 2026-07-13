@@ -1,377 +1,182 @@
-﻿import router from '@ohos.router';
+import router from '@ohos.router';
 import promptAction from '@ohos.promptAction';
 import http from '@ohos.net.http';
 import { PreferencesUtils } from '../utils/PreferencesUtils';
 import { TCPClientManager } from '../tcp/TCPClientManager';
-import { ButtonShadow } from '../styles/styles';
 import { VideoComponents } from '../components/VideoComponents';
 
-interface FacePayload {
-  name: string;
-}
-
-interface FaceData {
-  name?: string;
-}
-
-interface FaceResult {
-  name?: string;
-  faceName?: string;
-  person?: string;
-  result?: string;
-  data?: FaceData;
-}
+interface FacePayload { name: string; }
+interface StatusData { running: boolean; face_enabled: boolean; }
+interface FaceInfo { status: string; name: string; }
+interface FaceResultData { face?: FaceInfo; status?: string; name?: string; }
 
 @Entry
 @Component
 struct FaceRecognition {
-  @State name: string = '张三';
-  @State serviceBaseUrl: string = 'http://192.168.1.11:5001';
+  @State name: string = '';
+  @State serviceBaseUrl: string = 'http://192.168.1.11:5000';
   @State statusText: string = '等待操作';
-  @State resultText: string = '这里会显示识别结果';
-  @State connectionState: string = '检查连接状态...';
+  @State resultText: string = '等待数据...';
+  @State isConnected: boolean = false;
   @State isRecognizing: boolean = false;
-  @State faceLabel: string = '暂无识别结果';
+  @State faceLabel: string = '暂无结果';
+  @State carIp: string = '';
 
-  aboutToAppear(): void {
-    this.initFacePage();
-  }
+  aboutToAppear(): void { this.initPage(); }
 
-  async initFacePage(): Promise<void> {
-    await this.loadServiceAddress();
-    await this.refreshConnectionState();
-    if (this.connectionState.includes('已连接')) {
-      await this.autoStartRecognition();
-    }
+  async initPage(): Promise<void> {
+    this.carIp = await PreferencesUtils.getInstance().netUtils.getIP() as string;
+    this.serviceBaseUrl = `http://${this.carIp}:5000`;
+    this.isConnected = await TCPClientManager.getInstance().isConnect();
+    if (this.isConnected) { await this.getStatus(); }
   }
 
   build() {
-    Column({ space: '12vp' }) {
-      Row() {
-        Button('返回')
-          .backgroundColor('#111827')
-          .fontColor('#ffffff')
-          .borderRadius('12vp')
-          .shadow(ButtonShadow)
+    Column() {
+      // ====== 顶部栏 ======
+      Row({ space: '8vp' }) {
+        Button('← 返回')
+          .fontSize('12fp').fontColor('#ffffff').backgroundColor('#1a1a1a')
+          .borderRadius('6vp').padding({ left: '10vp', right: '10vp', top: '6vp', bottom: '6vp' })
           .onClick(() => { router.back(); })
-          .padding({ left: '14vp', right: '14vp', top: '10vp', bottom: '10vp' })
+        Text('人脸识别').fontSize('15fp').fontWeight(FontWeight.Bold).fontColor('#111111')
+        Blank()
+        Circle({ width: '7vp', height: '7vp' }).fill(this.isConnected ? '#22c55e' : '#999999')
+        Text(this.isConnected ? `已连接 ${this.carIp}` : '未连接').fontSize('11fp')
+          .fontColor(this.isConnected ? '#333333' : '#999999')
+        Text(this.isRecognizing ? ' | 识别中' : '').fontSize('11fp').fontColor('#333333')
       }
-      .width('100%')
-      .padding({ top: '24vp', left: '16vp', right: '16vp', bottom: '4vp' })
+      .width('100%').padding({ left: '10vp', right: '10vp', top: '8vp', bottom: '6vp' })
+      .backgroundColor('#fafafa').border({ width: { bottom: '1vp' }, color: '#e5e5e5' })
 
-      Scroll() {
-        Row({ space: '12vp' }) {
-          Column({ space: '12vp' }) {
-            Column({ space: '10vp' }) {
-              Text('摄像头画面')
-                .fontSize('15fp')
-                .fontWeight(FontWeight.Bold)
-                .fontColor('#111827')
-
-              VideoComponents({ showControls: false, videoWidth: '100%', videoHeight: '100%' })
-                .borderRadius('18vp')
-            }
-            .width('100%')
-            .padding('12vp')
-            .backgroundColor('#f8fafc')
-            .borderRadius('20vp')
-            .border({ width: '1vp', color: '#e2e8f0' })
-
-            Column({ space: '8vp' }) {
-              Text('运行状态')
-                .fontSize('15fp')
-                .fontWeight(FontWeight.Bold)
-                .fontColor('#111827')
-              Text(this.connectionState)
-                .fontSize('13fp')
-                .fontColor(this.connectionState.includes('已连接') ? '#16a34a' : '#d97706')
-              Text(this.isRecognizing ? '识别已启动，摄像头实时采集中' : '尚未识别，等待自动或手动启动')
-                .fontSize('13fp')
-                .fontColor('#475569')
-              Text(this.statusText)
-                .fontSize('13fp')
-                .fontColor('#475569')
-            }
-            .width('100%')
-            .padding('12vp')
-            .backgroundColor('#ffffff')
-            .borderRadius('20vp')
-            .border({ width: '1vp', color: '#e2e8f0' })
-          }
-          .width('0vp')
-          .layoutWeight(1)
-
-          Column({ space: '12vp' }) {
-            Column({ space: '10vp' }) {
-              Text('服务与识别参数')
-                .fontSize('15fp')
-                .fontWeight(FontWeight.Bold)
-                .fontColor('#111827')
-
-              Column({ space: '8vp' }) {
-                Row({ space: '8vp' }) {
-                  Text('服务地址')
-                    .fontSize('13fp')
-                    .fontColor('#475569')
-                  Text(this.serviceBaseUrl)
-                    .fontSize('13fp')
-                    .fontColor('#111827')
-                    .layoutWeight(1)
-                }
-                Row({ space: '8vp' }) {
-                  Text('姓名')
-                    .width('68vp')
-                    .fontSize('13fp')
-                    .fontColor('#475569')
-                  TextInput({ text: this.name })
-                    .onChange((value: string) => this.name = value)
-                    .layoutWeight(1)
-                    .backgroundColor('#f1f5f9')
-                    .fontColor('#111827')
-                    .padding({ left: '12vp', right: '12vp', top: '8vp', bottom: '8vp' })
-                }
-              }
-            }
-            .width('100%')
-            .padding('12vp')
-            .backgroundColor('#f8fafc')
-            .borderRadius('20vp')
-            .border({ width: '1vp', color: '#e2e8f0' })
-
-            Column({ space: '10vp' }) {
-              Text('操作')
-                .fontSize('15fp')
-                .fontWeight(FontWeight.Bold)
-                .fontColor('#111827')
-
-              Row({ space: '8vp' }) {
-                Button('注册人脸')
-                  .layoutWeight(1)
-                  .backgroundColor('#2563eb')
-                  .fontColor('#ffffff')
-                  .shadow(ButtonShadow)
-                  .borderRadius('14vp')
-                  .height('40vp')
-                  .onClick(() => this.registerFace())
-                Button(this.isRecognizing ? '停止识别' : '开始识别')
-                  .layoutWeight(1)
-                  .backgroundColor(this.isRecognizing ? '#dc2626' : '#10b981')
-                  .fontColor('#ffffff')
-                  .shadow(ButtonShadow)
-                  .borderRadius('14vp')
-                  .height('40vp')
-                  .onClick(() => this.isRecognizing ? this.stopRecognize() : this.startRecognize())
-              }
-
-              Row({ space: '8vp' }) {
-                Button('刷新结果')
-                  .layoutWeight(1)
-                  .backgroundColor('#f1f5f9')
-                  .fontColor('#111827')
-                  .shadow(ButtonShadow)
-                  .borderRadius('14vp')
-                  .height('40vp')
-                  .onClick(() => this.getResult())
-                Button('查询状态')
-                  .layoutWeight(1)
-                  .backgroundColor('#f1f5f9')
-                  .fontColor('#111827')
-                  .shadow(ButtonShadow)
-                  .borderRadius('14vp')
-                  .height('40vp')
-                  .onClick(() => this.getStatus())
-              }
-            }
-            .width('100%')
-            .padding('12vp')
-            .backgroundColor('#ffffff')
-            .borderRadius('20vp')
-            .border({ width: '1vp', color: '#e2e8f0' })
-
-            Column({ space: '8vp' }) {
-              Text('识别结果')
-                .fontSize('15fp')
-                .fontWeight(FontWeight.Bold)
-                .fontColor('#111827')
-              Text(this.faceLabel)
-                .fontSize('15fp')
-                .fontWeight(FontWeight.Medium)
-                .fontColor('#2563eb')
-                .lineHeight('22fp')
-            }
-            .width('100%')
-            .padding('12vp')
-            .backgroundColor('#f8fafc')
-            .borderRadius('20vp')
-            .border({ width: '1vp', color: '#e2e8f0' })
-
-            Column({ space: '8vp' }) {
-              Text('接口输出')
-                .fontSize('15fp')
-                .fontWeight(FontWeight.Bold)
-                .fontColor('#111827')
-              Text(this.resultText)
-                .fontSize('13fp')
-                .fontColor('#475569')
-                .lineHeight('20fp')
-            }
-            .width('100%')
-            .padding('12vp')
-            .backgroundColor('#ffffff')
-            .borderRadius('20vp')
-            .border({ width: '1vp', color: '#e2e8f0' })
-          }
-          .width('0vp')
-          .layoutWeight(1)
+      // ====== 主体 ======
+      Row({ space: '8vp' }) {
+        // 左侧：视频
+        Column({ space: '4vp' }) {
+          VideoComponents({ showControls: false, videoWidth: '100%', videoHeight: '100%' })
+            .borderRadius('10vp').layoutWeight(1)
         }
-        .padding({ left: '16vp', right: '16vp', bottom: '20vp' })
+        .width('0vp').layoutWeight(5.5).padding('6vp')
+        .backgroundColor('#fafafa').borderRadius('12vp').border({ width: '1vp', color: '#e5e5e5' })
+
+        // 右侧：操作
+        Column({ space: '6vp' }) {
+          Row({ space: '6vp' }) {
+            Text('服务').fontSize('10fp').fontColor('#999999').width('30vp')
+            Text(this.serviceBaseUrl).fontSize('10fp').fontColor('#999999').layoutWeight(1).maxLines(1)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+          }
+
+          Row({ space: '6vp' }) {
+            TextInput({ text: this.name, placeholder: '输入姓名' })
+              .onChange((v: string) => { this.name = v; })
+              .layoutWeight(1).fontSize('12fp').backgroundColor('#f1f1f1')
+              .padding({ left: '10vp', right: '10vp', top: '7vp', bottom: '7vp' })
+            Button('注册')
+              .fontSize('12fp').fontColor('#ffffff').backgroundColor('#1a1a1a')
+              .borderRadius('6vp').height('34vp').padding({ left: '12vp', right: '12vp' })
+              .onClick(() => { this.registerFace(); })
+          }
+
+          Row({ space: '5vp' }) {
+            Button(this.isRecognizing ? '停止' : '开始识别')
+              .layoutWeight(1).fontSize('12fp').fontColor('#ffffff')
+              .backgroundColor(this.isRecognizing ? '#555555' : '#1a1a1a')
+              .borderRadius('6vp').height('34vp')
+              .onClick(() => { this.isRecognizing ? this.stopRecognize() : this.startRecognize(); })
+            Button('刷新')
+              .layoutWeight(1).fontSize('12fp').fontColor('#666666').backgroundColor('#f1f1f1')
+              .borderRadius('6vp').height('34vp').onClick(() => { this.getResult(); })
+            Button('状态')
+              .layoutWeight(1).fontSize('12fp').fontColor('#666666').backgroundColor('#f1f1f1')
+              .borderRadius('6vp').height('34vp').onClick(() => { this.getStatus(); })
+          }
+
+          Column({ space: '4vp' }) {
+            Text('识别结果').fontSize('10fp').fontWeight(FontWeight.Medium).fontColor('#999999').width('100%')
+            Text(this.faceLabel).fontSize('15fp').fontWeight(FontWeight.Bold)
+              .fontColor(this.faceLabel.includes('识别到') ? '#333333' : '#999999')
+              .width('100%').textAlign(TextAlign.Center).padding('10vp')
+              .backgroundColor('#fafafa').borderRadius('8vp')
+          }
+          .width('100%').padding('8vp').backgroundColor('#ffffff').borderRadius('10vp').border({ width: '1vp', color: '#e5e5e5' })
+
+          Text(this.statusText).fontSize('10fp').fontColor('#999999').width('100%').maxLines(2)
+
+          Text(this.resultText).fontSize('9fp').fontColor('#cccccc').lineHeight('12fp').maxLines(3)
+            .textOverflow({ overflow: TextOverflow.Ellipsis }).width('100%')
+            .padding('6vp').backgroundColor('#fafafa').borderRadius('6vp')
+        }
+        .width('0vp').layoutWeight(4.5).padding('8vp')
+        .backgroundColor('#ffffff').borderRadius('12vp').border({ width: '1vp', color: '#e5e5e5' })
       }
-      .width('100%')
-      .layoutWeight(1)
+      .width('100%').layoutWeight(1).padding('8vp')
     }
-    .width('100%')
-    .height('100%')
-    .backgroundColor('#ffffff')
+    .width('100%').height('100%').backgroundColor('#ffffff')
   }
 
-  private async autoStartRecognition(): Promise<void> {
-    if (this.isRecognizing) {
-      return;
-    }
-    this.statusText = '正在自动启动人脸识别...';
-    const result = await this.callFaceService(http.RequestMethod.POST, '/start');
+  // ====== 业务逻辑 ======
+  private async startRecognize(): Promise<void> {
+    this.statusText = '正在启动...';
+    const result = await this.callService(http.RequestMethod.POST, '/start');
     this.resultText = result;
     if (!result.includes('失败')) {
-      this.isRecognizing = true;
-      this.statusText = '人脸识别已自动启动';
+      this.isRecognizing = true; this.statusText = '识别运行中';
+      promptAction.showToast({ message: '人脸识别已启动' });
       await this.getResult();
-    } else {
-      this.statusText = '自动启动失败，请手动启动';
-    }
+    } else { this.statusText = '启动失败'; promptAction.showToast({ message: '启动失败' }); }
   }
-
-  private async loadServiceAddress(): Promise<void> {
-    const ip = await PreferencesUtils.getInstance().netUtils.getIP();
-    this.serviceBaseUrl = `http://${ip}:5001`;
-  }
-
-  private async refreshConnectionState(): Promise<void> {
-    const connected = await TCPClientManager.getInstance().isConnect();
-    this.connectionState = connected ? '当前已连接到小车，可以进行人脸注册与识别' : '当前尚未连接到小车，请先在网络设置页完成连接';
-  }
-
-  private async registerFace(): Promise<void> {
-    if (!this.name.trim()) {
-      promptAction.showToast({ message: '请输入姓名' });
-      return;
-    }
-    this.statusText = '正在注册人脸...';
-    const requestPayload: FacePayload = { name: this.name.trim() };
-    const result = await this.callFaceService(http.RequestMethod.POST, '/register', requestPayload);
-    this.resultText = result;
-    this.faceLabel = this.parseFaceResult(result);
-    this.statusText = '注册人脸完成';
-    await this.refreshConnectionState();
-  }
-
-  private async startRecognize(): Promise<void> {
-    this.statusText = '正在开始识别...';
-    const result = await this.callFaceService(http.RequestMethod.POST, '/start');
-    this.resultText = result;
-    this.isRecognizing = !result.includes('失败');
-    this.statusText = this.isRecognizing ? '识别已启动' : '识别启动失败';
-    if (this.isRecognizing) {
-      await this.getResult();
-    }
-  }
-
   private async stopRecognize(): Promise<void> {
-    this.statusText = '正在停止识别...';
-    const result = await this.callFaceService(http.RequestMethod.POST, '/stop');
-    this.resultText = result;
-    this.isRecognizing = false;
-    this.statusText = '识别已停止';
+    const result = await this.callService(http.RequestMethod.POST, '/stop');
+    this.resultText = result; this.isRecognizing = false;
+    this.faceLabel = '已停止'; this.statusText = '已停止';
+    promptAction.showToast({ message: '已停止' });
   }
-
+  private async registerFace(): Promise<void> {
+    if (!this.name.trim()) { promptAction.showToast({ message: '请输入姓名' }); return; }
+    this.statusText = '正在注册...';
+    const result = await this.callService(http.RequestMethod.POST, '/register', { name: this.name.trim() });
+    this.resultText = result; this.statusText = '注册完成';
+    promptAction.showToast({ message: '注册请求已发送' });
+  }
   private async getStatus(): Promise<void> {
-    this.statusText = '正在查询状态...';
-    const result = await this.callFaceService(http.RequestMethod.GET, '/status');
+    const result = await this.callService(http.RequestMethod.GET, '/status');
     this.resultText = result;
-    this.statusText = '状态查询完成';
+    try { const data: StatusData = JSON.parse(result) as StatusData; this.isRecognizing = data.running && data.face_enabled; } catch { /* */ }
   }
-
   private async getResult(): Promise<void> {
-    this.statusText = '正在查询结果...';
-    const result = await this.callFaceService(http.RequestMethod.GET, '/result');
-    this.resultText = result;
-    this.faceLabel = this.parseFaceResult(result);
-    this.statusText = '结果查询完成';
+    const result = await this.callService(http.RequestMethod.GET, '/result');
+    this.resultText = result; this.parseFaceResult(result);
   }
-
-  private parseFaceResult(result: string): string {
-    if (!result || result.trim().length === 0) {
-      return '暂无识别结果';
-    }
-    const raw = result.trim();
+  private parseFaceResult(result: string): void {
+    if (!result || result.trim().length === 0) { this.faceLabel = '暂无结果'; return; }
     try {
-      const data = JSON.parse(raw) as FaceResult;
-      if (typeof data === 'string') {
-        return data;
+      const data: FaceResultData = JSON.parse(result) as FaceResultData;
+      if (data.face) {
+        if (data.face.status === 'recognized' && data.face.name !== 'unknown') { this.faceLabel = `识别到: ${data.face.name}`; }
+        else if (data.face.status === 'no_face') { this.faceLabel = '未检测到人脸'; }
+        else if (data.face.status === 'face_disabled') { this.faceLabel = '未启用'; }
+        else { this.faceLabel = data.face.name !== 'unknown' ? `识别到: ${data.face.name}` : '未识别'; }
+        return;
       }
-      if (data.name) {
-        return `识别到：${data.name}`;
-      }
-      if (data.faceName) {
-        return `识别到：${data.faceName}`;
-      }
-      if (data.person) {
-        return `识别到：${data.person}`;
-      }
-      if (data.result) {
-        return `识别到：${data.result}`;
-      }
-      if (data.data && data.data.name) {
-        return `识别到：${data.data.name}`;
-      }
-      return JSON.stringify(data);
-    } catch {
-      return raw;
-    }
+      if (data.name && data.name !== 'unknown') { this.faceLabel = `识别到: ${data.name}`; }
+      else if (data.status) { this.faceLabel = data.status; }
+      else { this.faceLabel = JSON.stringify(data).substring(0, 30); }
+    } catch { this.faceLabel = result.substring(0, 30); }
   }
-
-  private async callFaceService(method: http.RequestMethod, path: string, payload?: FacePayload): Promise<string> {
-    const baseUrl = this.serviceBaseUrl.trim().replace(/\/$/, '');
-    const requestUrl = `${baseUrl}${path}`;
+  private async callService(method: http.RequestMethod, path: string, payload?: FacePayload): Promise<string> {
+    const requestUrl = `${this.serviceBaseUrl.trim().replace(/\/$/, '')}${path}`;
     const httpRequest = http.createHttp();
     try {
       const response: http.HttpResponse = await new Promise((resolve, reject) => {
-        httpRequest.request(
-          requestUrl,
-          {
-            method: method,
-            header: {
-              'Content-Type': 'application/json'
-            },
-            expectDataType: http.HttpDataType.STRING,
-            connectTimeout: 10000,
-            readTimeout: 10000,
-            extraData: payload ? JSON.stringify(payload) : undefined
-          },
-          (err, data) => {
-            if (err) {
-              reject(err);
-            } else {
-              resolve(data);
-            }
-          }
-        );
+        httpRequest.request(requestUrl, {
+          method: method, header: { 'Content-Type': 'application/json' },
+          expectDataType: http.HttpDataType.STRING, connectTimeout: 10000, readTimeout: 10000,
+          extraData: payload ? JSON.stringify(payload) : undefined
+        }, (err, data) => { err ? reject(err) : resolve(data); });
       });
-
       return typeof response.result === 'string' ? response.result : JSON.stringify(response.result);
-    } catch (error) {
-      return `请求失败: ${JSON.stringify(error)}`;
-    } finally {
-      httpRequest.destroy();
-    }
+    } catch (error) { return `请求失败: ${JSON.stringify(error)}`; }
+    finally { httpRequest.destroy(); }
   }
 }

@@ -103,7 +103,7 @@ export class NetInfoPreferencesUtils {
 
   async getVideoPort() {
     await this.waitInit();
-    return this.pref.get(NetInfoPreferencesUtils.KEY_VIDEO_PORT, '6500')
+    return this.pref.get(NetInfoPreferencesUtils.KEY_VIDEO_PORT, '5000')
   }
 }
 

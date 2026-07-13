@@ -4,6 +4,11 @@
     "pages/MecanumWheel",
     "pages/RemoteControl",
     "pages/NetworkSettings",
-    "pages/FaceRecognition"
+    "pages/FaceRecognition",
+    "pages/SmartDialogue",
+    "pages/FallDetection",
+    "pages/MusicPlayer",
+    "pages/FormationControl",
+    "pages/AutoFunctions"
   ]
 }

@@ -1,8 +1,11 @@
-{
+﻿{
   "module": {
     "requestPermissions": [
       {
         "name": "ohos.permission.INTERNET"
+      },
+      {
+        "name": "ohos.permission.MICROPHONE"
       }
     ],
     "name": "entry",

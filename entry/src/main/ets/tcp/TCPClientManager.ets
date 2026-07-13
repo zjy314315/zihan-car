@@ -152,7 +152,11 @@ export class TCPClientManager {
 
     // 如果断线了需要重连
     console.log(TAG, '正在重连')
-    await this.connect();
+    const connected = await this.connect();
+    if (connected) {
+      this.socket.send({ data: message });
+      return true;
+    }
     return false;
 
   }
