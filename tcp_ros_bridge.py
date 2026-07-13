@@ -15,6 +15,10 @@ HarmonyOS App <-> ROS TCP Bridge
 """
 
 import socket
+import json
+import subprocess
+import tempfile
+import urllib.request
 import threading
 import sys
 import os
@@ -118,6 +122,54 @@ class TcpRosBridge:
             self.server_socket.close()
         print("[Server] 服务器已停止")
 
+    def answer_app_question(self, question):
+        payload = {
+            "model": "qwen2.5:0.5b",
+            "stream": False,
+            "options": {"num_predict": 32, "temperature": 0.2},
+            "messages": [
+                {"role": "system", "content": "You are Zihan's car. Reply in Chinese using at most 20 characters."},
+                {"role": "user", "content": question},
+            ],
+        }
+        request = urllib.request.Request(
+            "http://127.0.0.1:11434/api/chat",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(request, timeout=90) as response:
+            answer = json.loads(response.read().decode("utf-8"))["message"]["content"]
+        return "".join(answer.split())[:20] or "\\u6211\\u6682\\u65f6\\u65e0\\u6cd5\\u56de\\u7b54\\u3002"
+
+    def speak_app_answer(self, answer):
+        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as audio:
+            audio_path = audio.name
+        try:
+            subprocess.run(["espeak-ng", "-v", "zh", "-s", "155", "-w", audio_path, answer], check=True)
+            os.chmod(audio_path, 0o644)
+            subprocess.run([
+                "runuser", "-u", "jetson", "--", "env",
+                "XDG_RUNTIME_DIR=/run/user/1000",
+                "PULSE_SERVER=unix:/run/user/1000/pulse/native",
+                "paplay",
+                "--device=alsa_output.usb-C-Media_Electronics_Inc._USB_Audio_Device-00.analog-stereo",
+                audio_path,
+            ], check=True)
+        finally:
+            if os.path.exists(audio_path):
+                os.unlink(audio_path)
+
+    def process_app_question(self, line):
+        try:
+            question = json.loads(line[len("@LLM:"):]).get("question", "").strip()
+            if not question:
+                return
+            print(f"[APP] question: {question}")
+            answer = self.answer_app_question(question)
+            print(f"[APP] answer: {answer}")
+            self.speak_app_answer(answer)
+        except Exception as error:
+            print(f"[APP] LLM request failed: {error}")
     def handle_client(self, client_sock, addr):
         """处理单个客户端连接"""
         buffer = ""
@@ -129,6 +181,10 @@ class TcpRosBridge:
                     break
 
                 buffer += data.decode("utf-8", errors="ignore")
+
+                while buffer.startswith("@LLM:") and "\n" in buffer:
+                    line, buffer = buffer.split("\n", 1)
+                    self.process_app_question(line)
 
                 # 按完整帧解析 ($ ... #)
                 while "$" in buffer and "#" in buffer:

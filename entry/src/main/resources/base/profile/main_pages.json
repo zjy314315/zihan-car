@@ -5,6 +5,7 @@
     "pages/RemoteControl",
     "pages/NetworkSettings",
     "pages/FaceRecognition",
+    "pages/SmartDialogue",
     "pages/FallDetection",
     "pages/MusicPlayer",
     "pages/FormationControl"
