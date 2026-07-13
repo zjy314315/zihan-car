@@ -45,6 +45,7 @@ struct Index {
         GridItem() { FuncCard({ title: '人脸识别', desc: '身份注册 · 智能识别', char: 'F', action: () => { router.pushUrl({ url: 'pages/FaceRecognition' }) } }) }
         GridItem() { FuncCard({ title: '摔倒检测', desc: 'YOLO 监控 · 安全告警', char: 'S', action: () => { router.pushUrl({ url: 'pages/FallDetection' }) } }) }
         GridItem() { FuncCard({ title: '音乐播放', desc: '车载蜂鸣 · 音量调节', char: 'M', action: () => { router.pushUrl({ url: 'pages/MusicPlayer' }) } }) }
+        GridItem() { FuncCard({ title: '小车编队', desc: '领航跟随 · 自动编队', char: 'F', action: () => { router.pushUrl({ url: 'pages/FormationControl' }) } }) }
       }
       .columnsTemplate('1fr 1fr 1fr')
       .rowsTemplate('1fr 1fr')

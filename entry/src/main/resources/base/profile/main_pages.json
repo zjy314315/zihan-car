@@ -6,6 +6,7 @@
     "pages/NetworkSettings",
     "pages/FaceRecognition",
     "pages/FallDetection",
-    "pages/MusicPlayer"
+    "pages/MusicPlayer",
+    "pages/FormationControl"
   ]
 }
