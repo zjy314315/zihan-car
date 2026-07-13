@@ -161,9 +161,8 @@ struct FormationControl {
 
           // PID 配置
           if (this.showConfig) {
-            Text(this.statusText).fontSize('9fp').fontColor('#cccccc').lineHeight('12fp').maxLines(4)
-              .textOverflow({ overflow: TextOverflow.Ellipsis }).width('100%')
-              .padding('6vp').backgroundColor('#fafafa').borderRadius('6vp')
+            Text(`PID 参数 - 请在连接小车后调整`).fontSize('9fp').fontColor('#cccccc')
+              .width('100%').padding('6vp').backgroundColor('#fafafa').borderRadius('6vp')
           }
         }
         .width('0vp').layoutWeight(4.5).padding('8vp')
