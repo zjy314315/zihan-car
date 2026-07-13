@@ -2,7 +2,9 @@
 """Offline speech conversation using Vosk, local Ollama, and espeak-ng."""
 
 import argparse
-import json`nimport os`nimport tempfile
+import json
+import os
+import tempfile
 import subprocess
 import sys
 from pathlib import Path
