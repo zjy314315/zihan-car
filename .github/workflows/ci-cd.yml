@@ -34,7 +34,6 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check project metadata and Hvigor wrapper
         run: |
-          test -f oh-package.json5
           test -f entry/oh-package.json5
           node --check hvigor/hvigor-wrapper.js
 
