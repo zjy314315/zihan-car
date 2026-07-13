@@ -57,6 +57,7 @@ class TcpRosBridge:
         self.port = port
         self.server_socket = None
         self.running = False
+        self.audio_lock = threading.Lock()
 
         # ROS 发布器 (在 init_ros 中初始化)
         self.pub_cmd_vel = None
@@ -142,6 +143,10 @@ class TcpRosBridge:
         return "".join(answer.split())[:20] or "\\u6211\\u6682\\u65f6\\u65e0\\u6cd5\\u56de\\u7b54\\u3002"
 
     def speak_app_answer(self, answer):
+        with self.audio_lock:
+            self._speak_app_answer(answer)
+
+    def _speak_app_answer(self, answer):
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as audio:
             audio_path = audio.name
         try:

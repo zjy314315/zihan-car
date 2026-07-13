@@ -1,4 +1,4 @@
-﻿import router from '@ohos.router';
+import router from '@ohos.router';
 import promptAction from '@ohos.promptAction';
 import http from '@ohos.net.http';
 import { carApi } from '../CarUtill/CarApi';
@@ -62,7 +62,7 @@ struct MusicPlayer {
       }
       if (this.audioFiles.length > 0) {
         this.hasAudioServer = true;
-        this.statusText = `${this.audioFiles.length} 棣朻;
+        this.statusText = `${this.audioFiles.length} 首`;
         return;
       }
     }
@@ -91,12 +91,12 @@ struct MusicPlayer {
       }
       if (this.audioFiles.length > 0) {
         this.hasAudioServer = true;
-        this.statusText = `${this.audioFiles.length} 棣朻;
+        this.statusText = `${this.audioFiles.length} 首`;
         return;
       }
     }
     this.hasAudioServer = false;
-    this.statusText = '鏃犻煶棰?;
+    this.statusText = '无音频服务';
   }
 
   build() {
@@ -119,7 +119,7 @@ struct MusicPlayer {
             Column({ space: '4vp' }) {
               Text(this.getTrackName())
                 .fontSize('20fp').fontWeight(FontWeight.Bold).fontColor('#ffffff').maxLines(1)
-              Text(this.hasAudioServer ? '杞﹁浇闊充箰' : '铚傞福鍣?).fontSize('12fp').fontColor('#888888')
+              Text(this.hasAudioServer ? '车载音乐' : '蜂鸣器').fontSize('12fp').fontColor('#888888')
             }
             .width('100%').height('100%').justifyContent(FlexAlign.Center)
             .backgroundColor('#1a1a1a').borderRadius('14vp')
@@ -245,7 +245,7 @@ struct MusicPlayer {
   // Show name WITHOUT .wav in the cover/display
   getTrackName(): string {
     const list: string[] = this.getTrackList();
-    return this.currentTrack < list.length ? this.displayName(list[this.currentTrack]) : '鏃?;
+    return this.currentTrack < list.length ? this.displayName(list[this.currentTrack]) : '无曲目';
   }
 
   togglePlay(): void { if (this.isPlaying) { this.pause(); } else { this.play(); } }

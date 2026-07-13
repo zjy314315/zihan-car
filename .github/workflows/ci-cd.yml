@@ -36,6 +36,7 @@ jobs:
         run: |
           test -f entry/oh-package.json5
           node --check hvigor/hvigor-wrapper.js
+          node scripts/check-arkts-syntax.mjs
 
   deploy-car:
     name: Deploy ROS bridge to car
