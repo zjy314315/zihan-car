@@ -1,11 +1,25 @@
 import router from '@ohos.router';
+import socket from '@ohos.net.socket';
 import { TCPClientManager } from '../tcp/TCPClientManager';
+import { PreferencesUtils } from '../utils/PreferencesUtils';
 
 @Entry
 @Component
 struct SmartDialogue {
   @State question: string = '';
   @State status: string = '';
+  private carIp: string = '';
+
+  async aboutToAppear(): Promise<void> {
+    this.carIp = await PreferencesUtils.getInstance().netUtils.getIP() as string;
+    TCPClientManager.getInstance().initNetAddress({ address: this.carIp, port: 6001 } as socket.NetAddress);
+    await TCPClientManager.getInstance().connect();
+  }
+
+  aboutToDisappear(): void {
+    TCPClientManager.getInstance().closeConnection();
+    TCPClientManager.getInstance().initNetAddress({ address: this.carIp, port: 6000 } as socket.NetAddress);
+  }
 
   async sendQuestion() {
     const text = this.question.trim();
@@ -14,6 +28,7 @@ struct SmartDialogue {
       return;
     }
     this.status = 'Sending to car...';
+    TCPClientManager.getInstance().initNetAddress({ address: this.carIp, port: 6001 } as socket.NetAddress);
     const payload = `@LLM:${JSON.stringify({ question: text })}` + String.fromCharCode(10);
     const sent = await TCPClientManager.getInstance().sendMessage(payload);
     this.status = sent ? 'Car is speaking...' : 'Connection unavailable.';
