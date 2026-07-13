@@ -12,7 +12,7 @@ from pathlib import Path
 import requests
 from vosk import KaldiRecognizer, Model
 
-SYSTEM_PROMPT = "?????????????????????????,????????????????????????"
+SYSTEM_PROMPT = "\u4f60\u662f\u5b50\u6db5\u7684\u667a\u80fd\u5c0f\u8f66\u3002\u53ea\u7528\u4e2d\u6587\u56de\u7b54\u3002\u6bcf\u6b21\u4e0d\u8d85\u8fc7\u4e8c\u5341\u4e2a\u5b57\u3002\u4e0d\u8981\u89e3\u91ca\u3001\u7ffb\u8bd1\u6216\u4e3e\u4f8b\u3002"
 
 
 def parse_args() -> argparse.Namespace:
@@ -20,7 +20,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--device", default="hw:2,0")
     parser.add_argument("--rate", type=int, default=16000)
     parser.add_argument("--model-path", type=Path, default=Path.home() / ".local/share/zihan-car/vosk-model-small-cn-0.22")
-    parser.add_argument("--ollama-model", default="tinyllama:latest")
+    parser.add_argument("--ollama-model", default="qwen2.5:0.5b")
     parser.add_argument("--ollama-url", default="http://127.0.0.1:11434/api/chat")
     return parser.parse_args()
 
@@ -58,10 +58,11 @@ def fixed_reply(message: str) -> str:
     return ""
 
 def ask_ollama(url: str, model: str, message: str) -> str:
-    payload = {"model": model, "stream": False, "options": {"num_predict": 40, "temperature": 0.2}, "messages": [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": message}]}
+    payload = {"model": model, "stream": False, "options": {"num_predict": 32, "temperature": 0.2}, "messages": [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": message}]}
     response = requests.post(url, json=payload, timeout=90)
     response.raise_for_status()
-    return response.json()["message"]["content"].strip()
+        reply = "".join(response.json()["message"]["content"].split())
+    return reply[:20] or "\u6211\u6682\u65f6\u65e0\u6cd5\u56de\u7b54\u3002"
 
 
 def speak(text: str) -> None:
