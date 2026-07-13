@@ -21,7 +21,7 @@ so it does not need a fixed address, public SSH port, DDNS, or LAN discovery.
    `/opt/ros/noetic/setup.bash`, for example:
 
    ```bash
-   ROS_SETUP=/opt/ros/humble/setup.bash ./scripts/setup-car-service.sh
+   ROS_SETUP=/opt/ros/foxy/setup.bash TCP_ROS_PORT=6001 ./scripts/setup-car-service.sh
    ```
 
 5. Create the `car-production` environment under `Settings > Environments` and

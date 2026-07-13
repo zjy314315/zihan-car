@@ -6,7 +6,7 @@ set -euo pipefail
 
 REPO_DIR="${CAR_DEPLOY_DIR:-$HOME/zihan-car}"
 ROS_SETUP="${ROS_SETUP:-/opt/ros/noetic/setup.bash}"
-TCP_ROS_PORT="${TCP_ROS_PORT:-6000}"
+TCP_ROS_PORT="${TCP_ROS_PORT:-6001}"
 RUNNER_USER="$(id -un)"
 SYSTEMCTL="$(command -v systemctl)"
 
