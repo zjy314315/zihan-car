@@ -62,6 +62,7 @@ struct Index {
             GridItem() { FuncCard({ title: '声音控制', desc: '蜂鸣器与律动模式', tag: '音效', action: () => { router.pushUrl({ url: 'pages/MusicPlayer' }) } }) }
             GridItem() { FuncCard({ title: '小车编队', desc: '领航跟随与自动编队', tag: '编队', action: () => { router.pushUrl({ url: 'pages/FormationControl' }) } }) }
             GridItem() { FuncCard({ title: '智能对话', desc: '文字提问与语音回复', tag: 'AI', action: () => { router.pushUrl({ url: 'pages/SmartDialogue' }) } }) }
+            GridItem() { FuncCard({ title: '基础功能', desc: '跟随导航与避障', tag: '导航', action: () => { router.pushUrl({ url: 'pages/AutoFunctions' }) } }) }
           }
           .columnsTemplate('1fr 1fr').columnsGap('12vp').rowsGap('12vp').width('100%')
 

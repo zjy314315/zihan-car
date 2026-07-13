@@ -15,7 +15,7 @@ interface StatusResponse { running: boolean; face_enabled: boolean; yolo_enabled
 @Entry
 @Component
 struct FallDetection {
-  @State serviceBaseUrl: string = 'http://192.168.1.11:5001';
+  @State serviceBaseUrl: string = 'http://192.168.1.11:5000';
   @State resultText: string = '等待数据...';
   @State isConnected: boolean = false;
   @State isMonitoring: boolean = false;
@@ -29,7 +29,7 @@ struct FallDetection {
   aboutToAppear(): void { this.initPage(); }
   async initPage(): Promise<void> {
     this.carIp = await PreferencesUtils.getInstance().netUtils.getIP() as string;
-    this.serviceBaseUrl = `http://${this.carIp}:5001`;
+    this.serviceBaseUrl = `http://${this.carIp}:5000`;
     this.isConnected = await TCPClientManager.getInstance().isConnect();
     if (this.isConnected) { await this.getStatus(); }
   }

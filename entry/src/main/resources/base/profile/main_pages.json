@@ -8,6 +8,7 @@
     "pages/SmartDialogue",
     "pages/FallDetection",
     "pages/MusicPlayer",
-    "pages/FormationControl"
+    "pages/FormationControl",
+    "pages/AutoFunctions"
   ]
 }

@@ -8,7 +8,7 @@ let TAG = "VideoComponents"
 @Component
 export struct VideoComponents {
   controller: web_webview.WebviewController = new web_webview.WebviewController()
-  public static port: number = 6500;
+  public static port: number = 5000;
   public static ip: string = "192.168.1.11"
   @Prop showControls: boolean = true
   @Prop videoWidth: Length = '300vp'
