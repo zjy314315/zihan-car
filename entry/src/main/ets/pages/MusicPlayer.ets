@@ -28,7 +28,7 @@ struct MusicPlayer {
   private elapsed: number = 0;
 
   // 蜂鸣器后备曲目
-  private beepTracks: string[] = ['滴滴提醒', '警报音效', '倒车提示', '欢快节奏', '长鸣警告', '短促三声', '间隔蜂鸣', '连续滴滴'];
+  private beepTracks: string[] = ['音乐1', '音乐2', '音乐3', '音乐4', '音乐5', '音乐6', '音乐7', '音乐8'];
   private beepPatterns: number[][] = [
     [200, 200, 6], [500, 100, 4], [300, 800, 3], [150, 100, 8],
     [2000, 0, 1], [100, 150, 3], [400, 600, 5], [100, 100, 10],
@@ -173,7 +173,7 @@ struct MusicPlayer {
                 Row({ space: '8vp' }) {
                   Text(`${idx + 1}`).fontSize('11fp').fontWeight(FontWeight.Medium)
                     .fontColor(idx === this.currentTrack ? '#333' : '#ccc').width('22vp').textAlign(TextAlign.Center)
-                  Text(this.trimName(track)).fontSize('12fp').fontWeight(FontWeight.Medium)
+                  Text(this.displayName(track)).fontSize('12fp').fontWeight(FontWeight.Medium)
                     .fontColor(idx === this.currentTrack ? '#111' : '#666').layoutWeight(1).maxLines(1)
                     .textOverflow({ overflow: TextOverflow.Ellipsis })
                   if (idx === this.currentTrack && this.isPlaying) {
@@ -200,32 +200,30 @@ struct MusicPlayer {
     .width('100%').height('100%').backgroundColor('#ffffff')
   }
 
-  trimName(name: string): string {
-    // Remove extension and filter out test files
-    let dot: number = name.lastIndexOf('.');
-    let base: string = dot > 0 ? name.substring(0, dot) : name;
-    // Skip test files
-    if (base.startsWith('test_')) { return ''; }
-    return base;
+  // Display name (without extension)
+  displayName(name: string): string {
+    const dot: number = name.lastIndexOf('.');
+    return dot > 0 ? name.substring(0, dot) : name;
   }
 
+  // Full filenames for API calls
   getTrackList(): string[] {
     if (this.hasAudioServer && this.audioFiles.length > 0) {
       const names: string[] = [];
       for (let i: number = 0; i < this.audioFiles.length; i++) {
         const raw: string = this.audioFiles[i].name;
-        // Filter out test files
         if (raw.startsWith('test_')) { continue; }
-        names.push(this.trimName(raw));
+        names.push(raw);  // Keep full filename with .wav extension
       }
       if (names.length > 0) { return names; }
     }
     return this.beepTracks;
   }
 
+  // Show name WITHOUT .wav in the cover/display
   getTrackName(): string {
     const list: string[] = this.getTrackList();
-    return this.currentTrack < list.length ? this.trimName(list[this.currentTrack]) : '无';
+    return this.currentTrack < list.length ? this.displayName(list[this.currentTrack]) : '无';
   }
 
   togglePlay(): void { if (this.isPlaying) { this.pause(); } else { this.play(); } }

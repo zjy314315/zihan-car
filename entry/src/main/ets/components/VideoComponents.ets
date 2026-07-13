@@ -76,7 +76,7 @@ export struct VideoComponents {
   }
 
   getWebSrc() {
-    let v = `http://${VideoComponents.ip}:${VideoComponents.port}/index2`
+    let v: string = `http://${VideoComponents.ip}:${VideoComponents.port}/index2`
     console.log(TAG, "getWebSrc()", v)
     return v
   }
