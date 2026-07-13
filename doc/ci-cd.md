@@ -27,6 +27,8 @@ so it does not need a fixed address, public SSH port, DDNS, or LAN discovery.
 5. Create the `car-production` environment under `Settings > Environments` and
    add required reviewers if deployment approval is needed.
 
-Pushes to `master` validate the ROS bridge, build the HarmonyOS HAP, and then
+Pushes to `master` validate the ROS bridge, validate HarmonyOS project metadata, and then
 deploy the bridge to the registered car runner. Pull requests run validation and
-the HAP build only.
+validation only.
+
+The workflow does not produce a HAP because the public HarmonyOS SDK setup action previously referenced here no longer exists. Use a DevEco-capable dedicated runner when cloud HAP builds are required.

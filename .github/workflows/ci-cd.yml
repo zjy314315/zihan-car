@@ -26,30 +26,21 @@ jobs:
       - name: Check Python syntax
         run: python -m py_compile tcp_ros_bridge.py
 
-  build-harmony-app:
-    name: Build HarmonyOS app
+  validate-harmony-app:
+    name: Validate HarmonyOS project
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Set up HarmonyOS SDK
-        uses: god-dos/actions-setup-harmonyos-sdk@v1
-        with:
-          sdk-version: '4.1.0.400'
-      - name: Build HAP
+      - name: Check project metadata and Hvigor wrapper
         run: |
-          chmod +x hvigorw
-          ./hvigorw clean assembleApp
-      - name: Upload HAP
-        uses: actions/upload-artifact@v4
-        with:
-          name: harmonyos-app
-          path: entry/build/*/outputs/default/*.hap
-          if-no-files-found: error
+          test -f oh-package.json5
+          test -f entry/oh-package.json5
+          node --check hvigor/hvigor-wrapper.js
 
   deploy-car:
     name: Deploy ROS bridge to car
-    needs: [validate-ros-bridge, build-harmony-app]
+    needs: [validate-ros-bridge, validate-harmony-app]
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: [self-hosted, linux, car]
     environment: car-production
