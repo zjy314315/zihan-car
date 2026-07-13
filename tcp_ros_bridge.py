@@ -29,12 +29,13 @@ import signal
 # ============================================================
 USE_ROS = True
 try:
-    import rclpy
-    from geometry_msgs.msg import Twist
+    import rospy
+    from geometry_msgs.msg import Twist, TwistStamped
     from std_msgs.msg import String, Float32, Int32, Bool
 except ImportError:
     USE_ROS = False
-    print("[WARN] ROS 2 Python packages are unavailable; running without ROS output")
+    print("[WARN] rospy 未安装，将以调试模式运行（仅打印日志）")
+
 
 class TcpRosBridge:
     """TCP 转 ROS 桥接服务器"""
@@ -63,19 +64,33 @@ class TcpRosBridge:
         self.pub_buzzer = None
         self.pub_tracking = None
         self.pub_camera_switch = None
-        self.ros_node = None
 
     def init_ros(self):
+        """初始化 ROS 节点和发布器"""
         if not USE_ROS:
             return
-        rclpy.init(args=None)
-        self.ros_node = rclpy.create_node("tcp_ros_bridge")
-        self.pub_cmd_vel = self.ros_node.create_publisher(Twist, "/cmd_vel", 10)
-        self.pub_cmd_debug = self.ros_node.create_publisher(String, "/app_command", 10)
-        self.pub_buzzer = self.ros_node.create_publisher(Bool, "/buzzer", 10)
-        self.pub_tracking = self.ros_node.create_publisher(Bool, "/tracking_enabled", 10)
-        self.pub_camera_switch = self.ros_node.create_publisher(Int32, "/camera_switch", 10)
-        self.ros_node.get_logger().info("TCP ROS 2 bridge initialized")
+
+        rospy.init_node("tcp_ros_bridge", anonymous=True)
+
+        # ---- 发布器 ----
+        # 速度控制 /cmd_vel (Twist)
+        self.pub_cmd_vel = rospy.Publisher("/cmd_vel", Twist, queue_size=10)
+
+        # 调试/原始数据
+        self.pub_cmd_debug = rospy.Publisher("/app_command", String, queue_size=10)
+
+        # 蜂鸣器
+        self.pub_buzzer = rospy.Publisher("/buzzer", Bool, queue_size=10)
+
+        # 巡线/循迹开关
+        self.pub_tracking = rospy.Publisher("/tracking_enabled", Bool, queue_size=10)
+
+        # 摄像头切换
+        self.pub_camera_switch = rospy.Publisher("/camera_switch", Int32, queue_size=10)
+
+        rospy.loginfo("ROS 节点初始化完成")
+        print("[ROS] 节点初始化完成")
+
     def start(self):
         """启动 TCP 服务器"""
         self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -105,8 +120,6 @@ class TcpRosBridge:
         self.running = False
         if self.server_socket:
             self.server_socket.close()
-        if self.ros_node: self.ros_node.destroy_node()
-        if USE_ROS and rclpy.ok(): rclpy.shutdown()
         print("[Server] 服务器已停止")
 
     def answer_app_question(self, question):
@@ -224,7 +237,7 @@ class TcpRosBridge:
 
         # 发布原始命令到 ROS (调试用)
         if USE_ROS and self.pub_cmd_debug:
-            self.pub_cmd_debug.publish(String(data=frame))
+            self.pub_cmd_debug.publish(frame)
 
         # 按命令类型分发
         self.dispatch_command(cmd_type, data_hex, data_len_hex)
