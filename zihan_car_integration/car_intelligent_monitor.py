@@ -932,6 +932,7 @@ def api_start_all():
 @app.route("/formation/detect", methods=["POST"])
 def api_formation_detect():
     """启动仅检测模式（不发指令）"""
+    service.formation_enabled = True  # 必须启用，主循环才会调用 update()
     return jsonify(service.formation_controller.detect())
 
 
