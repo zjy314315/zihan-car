@@ -20,6 +20,11 @@ struct MusicPlayer {
   private playTimer: number = -1;
   private beepTimer: number = -1;
   private elapsed: number = 0;
+  @State danceMode: boolean = false;
+  @State bpm: number = 120;
+  private danceTimer: number = -1;
+  private danceStopTimer: number = -1;
+  private danceStep: number = 0;
 
   tracks: Track[] = [
     { name: '滴滴提醒', artist: '蜂鸣器' },  { name: '警报音效', artist: '蜂鸣器' },
@@ -33,7 +38,7 @@ struct MusicPlayer {
   ];
 
   aboutToAppear(): void { this.checkStatus(); }
-  aboutToDisappear(): void { this.stopBeep(); }
+  aboutToDisappear(): void { this.stopDance(); this.stopBeep(); }
 
   async checkStatus(): Promise<void> {
     this.isConnected = await TCPClientManager.getInstance().isConnect();
@@ -117,6 +122,21 @@ struct MusicPlayer {
               .borderRadius('8vp').width('52vp').height('44vp')
               .onClick(() => { this.nextTrack(); })
           }.justifyContent(FlexAlign.Center)
+
+          Row({ space: '8vp' }) {
+            Text('Rhythm dance').fontSize('12fp').fontWeight(FontWeight.Medium).fontColor('#333333')
+            Slider({ value: this.bpm, min: 80, max: 160, step: 10, style: SliderStyle.InSet })
+              .layoutWeight(1).onChange((value: number) => {
+                this.bpm = value;
+                if (this.danceMode) { this.stopDance(); this.startDance(); }
+              })
+            Text(`${this.bpm} BPM`).fontSize('10fp').fontColor('#666666')
+            Button(this.danceMode ? 'Stop' : 'Dance')
+              .fontSize('12fp').fontColor('#ffffff')
+              .backgroundColor(this.danceMode ? '#b91c1c' : '#0f766e')
+              .borderRadius('6vp').height('36vp')
+              .onClick(() => { this.danceMode ? this.stopDance() : this.startDance(); })
+          }.width('100%').padding('8vp').backgroundColor('#f8fafc').borderRadius('8vp')
         }
         .width('0vp').layoutWeight(5.5).padding('8vp')
         .backgroundColor('#ffffff').borderRadius('12vp').border({ width: '1vp', color: '#e5e5e5' })
@@ -164,11 +184,37 @@ struct MusicPlayer {
     if (!this.isConnected) { promptAction.showToast({ message: '请先连接小车' }); return; }
     this.isPlaying = true; this.elapsed = 0; this.startBeep(); this.startTimer();
   }
-  private pause(): void { this.isPlaying = false; this.stopBeep(); carApi.send(CarEncode.BuzzerEncode(false)); }
+  private pause(): void { this.isPlaying = false; this.stopDance(); this.stopBeep(); carApi.send(CarEncode.BuzzerEncode(false)); }
   private nextTrack(): void { const w = this.isPlaying; this.pause(); this.currentTrack = (this.currentTrack + 1) % this.tracks.length; if (w) this.play(); }
   private prevTrack(): void { const w = this.isPlaying; this.pause(); this.currentTrack = (this.currentTrack - 1 + this.tracks.length) % this.tracks.length; if (w) this.play(); }
   private selectTrack(idx: number): void { if (idx === this.currentTrack && this.isPlaying) return; this.pause(); this.currentTrack = idx; this.play(); }
 
+  private startDance(): void {
+    if (!this.isConnected) { promptAction.showToast({ message: 'Connect to the car first' }); return; }
+    if (!this.isPlaying) { this.play(); }
+    this.danceMode = true;
+    this.danceStep = 0;
+    const pattern: CarDirection[] = [CarDirection.Front, CarDirection.Left, CarDirection.After, CarDirection.Right];
+    const beatMs = Math.round(60000 / this.bpm);
+    const move = () => {
+      if (!this.danceMode) return;
+      carApi.send(CarEncode.ButtonCarEncode(pattern[this.danceStep % pattern.length]));
+      this.danceStep++;
+      if (this.danceStopTimer !== -1) { clearTimeout(this.danceStopTimer); }
+      this.danceStopTimer = setTimeout(() => {
+        carApi.send(CarEncode.ButtonCarEncode(CarDirection.Stop));
+      }, Math.round(beatMs * 0.65));
+    };
+    move();
+    this.danceTimer = setInterval(move, beatMs);
+  }
+
+  private stopDance(): void {
+    this.danceMode = false;
+    if (this.danceTimer !== -1) { clearInterval(this.danceTimer); this.danceTimer = -1; }
+    if (this.danceStopTimer !== -1) { clearTimeout(this.danceStopTimer); this.danceStopTimer = -1; }
+    carApi.send(CarEncode.ButtonCarEncode(CarDirection.Stop));
+  }
   private startBeep(): void {
     const pattern = this.beepPatterns[this.currentTrack];
     const onT = pattern[0]; const offT = pattern[1]; const rep = pattern[2];
