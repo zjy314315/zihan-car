@@ -90,9 +90,15 @@ export struct MapCanvas {
 
       // Canvas 地图
       Stack() {
+        // 默认显示 yahboomcar 地图图片
+        Image($rawfile('yahboomcar.png'))
+          .width('100%').height('100%')
+          .objectFit(ImageFit.Cover)
+
+        // Canvas 半透明叠加在地图上，显示航点和位姿
         Canvas(this.ctx)
           .width('100%').height('100%')
-          .backgroundColor('#1a1a2e')
+          .backgroundColor('#33000000')
           .onReady(() => { this.drawMap(); })
           .gesture(
             GestureGroup(GestureMode.Parallel,
