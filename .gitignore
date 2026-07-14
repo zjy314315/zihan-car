@@ -34,3 +34,4 @@ oh-package.json5
 
 # Large doc files
 doc/2408/*.doc
+entry/src/main/ets/pages/NetworkSettings.ets

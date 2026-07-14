@@ -1,0 +1,118 @@
+[Heading 1] 智慧小车项目测试文档
+[Heading 2] 1. 基线与目标
+[Body Text] 开发记录显示车端曾使用 ROS 2 Foxy，而当前 tcp_ros_bridge.py 依赖 ROS 1 rospy。所以凡是要求车辆实际运动的测试，必须先通过 ROS 运行时兼容性检查；否则只能做协议和日志验证，不能判定运动功能通过。
+[Heading 2] 2. 架构与接口
+[Body Text] 控制帧格式为 $01<cmd><size><data><checksum>#，校验和为帧内各字节之和模 256。
+[Heading 2] 3. 测试环境与安全前置
+[Compact] 运动测试前清空小车周边至少 2 米；首次测试须抬空车轮或使用低速短脉冲。
+[Compact] 测试员必须可以立即发送停止/刹车或切断底盘电源。不得在坡道、桌缘、人群中测试舞蹈、编队、循迹或避障。
+[Compact] 未确认 RGB 灯硬件和固件兼容前，不将灯光命令作为验收项。开发记录已显示 Rosmaster RGB 指令曾无硬件响应。
+[Heading 3] 3.1 预检清单
+[Heading 2] 4. 功能用例
+[First Paragraph] 结果填写 通过、失败、阻断 或 不适用。CTRL、DANCE、FORM、AUTO 用例均须先满足 PRE-04。
+[Heading 2] 5. 非功能、部署与恢复
+[Heading 2] 6. 自动化建议与当前检查
+[First Paragraph] 当前 entry/src/ohosTest 只有示例字符串断言，尚未覆盖业务功能。建议补充：
+[Compact] CarEncode 参数化单元测试：10、13、15、21 的边界、长度、校验和。
+[Compact] 桥接 socket 集成测试：合法/非法帧、粘包/拆包、LLM 协议、服务不可用；ROS 发布器使用 mock。
+[Compact] MusicPlayer fake timer 测试：BPM 间隔、55% 停车、停止/离页清理。
+[Compact] SmartDialogue 测试：固定 6001、首条重连发送、空输入、权限拒绝、payload 换行。
+[Compact] car_main.py Flask 测试客户端：状态、结果、人脸、跌倒、音频与无摄像头分支。
+[First Paragraph] 本次文档编制已在本地工作副本执行并通过以下静态检查：
+[Source Code] python -m py_compile tcp_ros_bridge.py voice_assistant\conversation.py voice_assistant\recognize.py zihan_car_integration\car_main.py zihan_car_integration\audio_server.py zihan_car_integration\car_face_recognition.py zihan_car_integration\car_intelligent_monitor.py
+git diff --check
+[First Paragraph] 这只证明 Python 语法和当前 diff 空白错误，不替代 HAP 构建、真机安装、ROS 与硬件验收。
+[Heading 2] 7. 缺陷与退出准则
+[First Paragraph] 缺陷应包含：测试 ID、版本、设备/ROS/端口配置、步骤、预期/实际、日志或视频证据、风险等级和回归结果。运动失控、急停失败、未授权运动、服务崩溃、对话误发至 6000 控制端口均为 P0，必须修复后才可继续现场验收。
+[Body Text] 退出条件：全部预检通过；P0/P1 为零；APP、NET、TCP、CTRL、DIALOG、MUSIC 核心用例通过；实际启用的视觉、编队和部署用例通过；未接入硬件的项目有明确的不适用或风险接受记录。
+
+=== TABLE 0 ===
+项目 | 内容
+项目 | zihan-car：HarmonyOS 控制端 + 车端 TCP/ROS、AI、音频服务
+测试基线 | Git f789862；执行前记录待测提交号和 git status --short
+文档依据 | 当前仓库、readme.md、doc/ros_api.md、CI/CD 配置及 2026-07-12 至 2026-07-13 开发记录
+目标 | 验证控制、网络、视觉 AI、音乐、智能对话、车端服务与部署的正确性、安全终止和异常处理
+
+=== TABLE 1 ===
+模块 | 代码位置 | 接口/端口 | 测试重点
+App | entry/src/main/ets | TCP 6000（默认控制） | 页面、连接、编码、断线重连
+智能对话 | SmartDialogue.ets、tcp_ros_bridge.py | TCP 6001 | 独立连接、@LLM: JSON、短答、播报
+TCP-ROS 桥接 | tcp_ros_bridge.py | TCP_ROS_PORT，默认 6000 | 帧解析、校验和、ROS 发布
+AI/视频/统一音乐 | zihan_car_integration/car_main.py | HTTP 5000 | 视频、人脸、跌倒、编队、音频
+独立音频服务 | zihan_car_integration/audio_server.py | HTTP 5002 | 仅在未用统一 5000 服务时测试
+语音服务 | voice_assistant | Vosk、Ollama 11434、USB 音频 | 识别、推理、播放、恢复
+CI/CD | .github/workflows/ci.yml、scripts、systemd | GitHub Actions/Runner | 校验、同步、服务重启
+
+=== TABLE 2 ===
+命令 | 功能 | 代表性检查
+10 | 自由控制，X/Y 为 -100 至 100 | 正负值编码与 /cmd_vel 映射
+13 | 蜂鸣器 | 开关成对发送
+15 | 前后、左右、旋转、停止、刹车 | 所有方向与急停
+18 | 摄像头切换 | topic 与画面一致
+21 | 四轮独立速度 | 正/负/零与归零
+60/61/62 | 拍照、开始/结束录像 | 命令到达车端
+63/64 | 循迹开关 | 状态成对切换
+
+=== TABLE 3 ===
+项目 | 要求
+App | DevEco Studio 4.1 Release 或兼容 SDK；真机安装待测 HAP
+网络 | 手机与小车互通；记录 IP、控制端口、视频端口、对话端口
+车端 | Python 3、摄像头、底盘、USB 麦克风/扬声器；对话需 Ollama 和 qwen2.5:0.5b
+ROS | ROS 1 rospy 可导入，且有真实 /cmd_vel 消费节点；若是 ROS 2，应使用经验证的 ROS 2 桥接版本
+观测 | App 状态、systemd 日志、端口、ROS topic、HTTP 响应、实物动作/声音/视频
+
+=== TABLE 4 ===
+ID | 操作 | 通过准则
+PRE-01 | 记录提交号和工作区状态 | 构建物、代码和结果可追溯
+PRE-02 | 检查 6000、6001、5000；使用独立音频时检查 5002 | 监听端口与 App 配置一致，无冲突
+PRE-03 | 检查 tcp-ros-bridge.service、voice-assistant.service、Ollama | 所需服务为 active，日志无循环崩溃
+PRE-04 | 检查 ROS 版本、rospy 与 /cmd_vel 订阅者 | 桥接和实际底盘运行时兼容；否则阻断运动验收
+PRE-05 | 访问 http://<car-ip>:5000/status、/snapshot | 返回状态 JSON 且有有效画面
+PRE-06 | 播放固定中文短句至 USB 扬声器 | 声音清晰可听
+
+=== TABLE 5 ===
+ID | 场景与步骤 | 预期结果
+APP-01 | 安装并首次启动 HAP；分别允许、拒绝麦克风权限 | 首页完整；允许后可语音识别；拒绝后可读提示且不闪退
+APP-02 | 从首页进入 8 个功能入口后返回 | 麦克纳姆轮、遥控、人脸、跌倒、声音、编队、对话、基础功能均可进入返回，无白屏
+NET-01 | UDP 9999 自动扫描，发送合法与非法 JSON 广播 | 合法小车只出现一次；非法报文忽略；停止扫描后端口释放
+NET-02 | 手填正确 IP/端口，再填不可达 IP/端口 | 成功时保存配置并进入主页；失败时不显示伪连接成功
+NET-03 | 连接后断开车端 TCP，再发送控制命令 | 自动重连；成功后首条消息真实送达；失败不崩溃
+TCP-01 | 发送有效停止、前进、自由控制帧 | 日志有完整帧和正确校验；ROS 收到正确值
+TCP-02 | 发送错误校验、非十六进制、缺 #、长度不符帧 | 记录错误且不发布运动命令，车辆保持停止
+TCP-03 | 连续粘包两帧、拆包一帧 | 每帧仅处理一次，不丢帧、不重复、半帧不动作
+CTRL-01 | 遥控摇杆前后、左右、旋转，松手 | 指令和实物方向一致；松手或停止后 1 秒内静止
+CTRL-02 | 分别点击 6 个方向、停止、刹车 | ROS 值和动作正确；停止/刹车全零且优先执行
+CTRL-03 | 四轮设为零、正值、负值、混合值；更新和归零 | cmd=21 编码正确；归零一次将四轮全置零
+CTRL-04 | 开/关自动循迹；拍照；开始/结束录像 | 成对发送 63/64、60、61/62；UI 与车端状态一致
+AUTO-01 | 开/关循迹、避障 | 启停状态正确；停用后不再自主移动；无传感器时显示错误
+VIDEO-01 | 打开实时画面 5 分钟，切后台再返回 | 画面可刷新、比例正常；恢复后可继续取流
+VIDEO-02 | 断网、摄像头不存在、5000 停止时打开画面 | 有加载/失败状态，不阻塞遥控和返回
+FACE-01 | 注册合法姓名正脸，开始识别并刷新 | 注册持久化；已登记显示姓名，未登记显示 unknown/未识别
+FACE-02 | 空姓名、无脸、多人脸、模型缺失时注册/识别 | 空姓名不请求；其余返回明确失败，不写入错误人脸数据
+FALL-01 | 开监测，使用合规测试素材或受控姿态连续触发 | 达到连续阈值才报告 fall_detected，并显示置信度
+FALL-02 | 停止监测、一键全开 | 停止后清除运行/报警态；一键全开启用声明的能力
+FORM-01 | 开始检测，发现领航目标后开始跟随，再停止 | 状态约每 1.5 秒更新；停止、取消、急停均发布零速度
+FORM-02 | 修改阈值/PID 后应用；输入边界和非法值 | 合法配置可读回；非法值拒绝或限幅，不输出超限速度
+MUSIC-01 | 在统一 5000 服务刷新列表、播放、暂停、上/下首、停止、调音量 | 列表、播放状态、计时和实际声音一致；停止后音频与蜂鸣器关闭
+MUSIC-02 | 分别仅运行 5000 统一服务、仅运行 5002 独立服务 | 明确记录部署模式；不混用端口显示伪成功
+DANCE-01 | 空场地，80/120/160 BPM 各执行 8 拍 | 前、左、后、右循环；拍长约 60000/BPM ms；每拍约 55% 后停车
+DANCE-02 | 跳舞中暂停音乐、点停止、返回、断开 TCP | 每种情况清理定时器并立即发送停止，无残留移动命令
+DIALOG-01 | 输入中文问题发送 | 连接 6001 而非普通 6000；桥接收到含真实换行的 @LLM: JSON；状态正确
+DIALOG-02 | 空输入、6001 不可达、Ollama 未启动、模型超时 | 显示输入/连接/生成错误；UI 不阻塞，6000 控制不受影响
+DIALOG-03 | 固定问题集：身份、天气、无意义输入 | 中文回复去空白后不超过 20 字；日志有问答；USB 扬声器清晰播报
+DIALOG-04 | App 语音输入：授权识别后停止并发送；拒绝权限、无结果、API 不可用 | 文本进入输入框并可发送；异常状态可读，不能误报已发送
+VOICE-01 | 车端离线识别正常语音、静音、低信噪比语音 | 正常短句输出文本；静音/噪声不触发无关对话；记录设备/采样参数
+VOICE-02 | 重启语音服务，连续提问 10 次；模拟播放失败 | 服务保持 active；无遗留录音/播放进程；失败日志可诊断，下轮可继续
+LIGHT-01 | 仅在确认硬件支持后发送灯光命令 | 实物与参数一致；无响应记录为硬件/固件不兼容，不能以日志代替通过
+
+=== TABLE 6 ===
+ID | 场景与步骤 | 通过准则
+REL-01 | App 前后台、连续进出页面 20 次 | 无闪退、重复定时器、重复监听或残留运动
+REL-02 | 控制、视频、对话并发 30 分钟 | 服务不重启；资源无持续异常增长；控制延迟不持续恶化
+PERF-01 | 记录 30 次控制延迟和 30 次对话首音延迟 | 输出 P50/P95；与已批准阈值比较，未定义时列为待确认
+SEC-01 | 超长文本、畸形 JSON、异常 TCP 帧调用 6000/6001 | 服务不崩溃、不运动；日志不含密码、token 等敏感信息
+SEC-02 | 审查 App 权限、systemd 用户、sudoers、GitHub 密钥 | 仅需麦克风/网络权限；仓库和日志不存凭据
+CICD-01 | 对 PR 触发工作流 | Python 语法和 HarmonyOS 元数据/Hvigor wrapper 校验通过；不部署车端
+CICD-02 | 在受控窗口推送已批准提交到 master | car Runner 同步并重启桥接；已启用的语音服务一并重启
+CICD-03 | 模拟端口占用或桥接启动失败 | 工作流失败并保留日志；车辆不继续残留运动；按回滚版本恢复
+REC-01 | 重启小车后检查服务、端口、App 重连 | 已启用 systemd 服务按配置恢复；无端口冲突；App 可重连

@@ -17,7 +17,7 @@ encode_image.py
 import base64
 import os
 
-def image_to_base64(image_path: str) -> str | None:
+def image_to_base64(image_path: str):
     """
     将指定路径的图片文件读取并编码为 Base64 字符串。
     如果文件不存在或无法读取，返回 None。
