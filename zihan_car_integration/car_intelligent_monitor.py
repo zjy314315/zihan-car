@@ -110,7 +110,7 @@ class FormationController:
         self.last_frame = None  # 用于画检测框
 
         # ---- 检测参数 ----
-        self.confidence_threshold = 0.3
+        self.confidence_threshold = 0.7
         self.iou_threshold = 0.45
         self.input_size = (640, 640)
 
@@ -257,8 +257,8 @@ class FormationController:
         """选择最佳检测作为领航车"""
         if not detections: return None
         valid = [d for d in detections
-                 if d["height"] >= 50 and d["width"] >= 35
-                 and d["center_y"] > 30 and d["center_y"] < 480]
+                 if d["height"] >= 60 and d["width"] >= 45
+                 and d["center_y"] > 150 and d["center_y"] < 380]
         if not valid: return None
         return max(valid, key=lambda d: d["width"] * d["height"] * d["confidence"])
 
@@ -277,35 +277,28 @@ class FormationController:
             return False
 
     def _send_command_tcp(self, linear_x: float, angular_z: float) -> bool:
-        """通过 TCP hex 协议发送自由控制指令 (cmd=0x10)"""
         try:
-            def to_signed_byte(val: float) -> int:
-                """映射 -1.0~1.0 到 -100~100"""
-                v = int(round(max(-100.0, min(100.0, val * 100.0))))
-                return v & 0xFF
-
-            sx = to_signed_byte(linear_x)
-            sy = to_signed_byte(angular_z)
-            data = f"{sx:02X}{sy:02X}"
-            content = "011002" + data       # vehicle=01, cmd=0x10, len=2
-            csum = sum(int(content[i:i+2], 16) for i in range(0, len(content), 2)) % 256
-            frame = f"${content}{csum:02X}#"
-
-            with socket.create_connection(("127.0.0.1", 6000), timeout=0.5) as sock:
+            if linear_x > 0.15:
+                direction = 1
+            elif linear_x < -0.15:
+                direction = 2
+            elif angular_z < -0.15:
+                direction = 5
+            elif angular_z > 0.15:
+                direction = 6
+            else:
+                direction = 0
+            data = "%02X" % direction
+            code = "0115" + "%02X" % (len(data)//2 + 2) + data
+            csum = sum(int(code[i:i+2], 16) for i in range(0, len(code), 2)) % 256
+            frame = "$" + code + ("%02X" % csum) + "#"
+            car_ip = self._get_car_ip()
+            with socket.create_connection((car_ip, 6000), timeout=0.5) as sock:
                 sock.sendall(frame.encode())
             return True
-        except Exception as e:
-            print(f"[Formation] TCP 发送失败: {e}")
+        except Exception:
             return False
 
-    def _send_command(self, linear_x: float, angular_z: float):
-        """发送控制指令: 优先 ROS，回退 TCP"""
-        self.cmd_linear = linear_x
-        self.cmd_angular = angular_z
-        if not self._send_command_ros(linear_x, angular_z):
-            self._send_command_tcp(linear_x, angular_z)
-
-    # -------- STOP 指令 --------
     def _send_stop(self):
         """急停"""
         self._send_command(0.0, 0.0)
@@ -924,6 +917,14 @@ def api_start_all():
 
 
 # ============================================================
+
+@app.route("/formation/video_page")
+def api_formation_video_page():
+    fc = service.formation_controller
+    ip = fc._get_car_ip() if hasattr(fc, "_get_car_ip") else "127.0.0.1"
+    return """<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><style>body{margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;overflow:hidden}img{width:100%;height:auto;display:block}</style></head><body><img id="v" src="/formation/frame"><script>setInterval(function(){document.getElementById("v").src="/formation/frame?t="+Date.now()},200)</script></body></html>"""
+
+
 # 编队控制 API
 # ============================================================
 @app.route("/formation/detect", methods=["POST"])

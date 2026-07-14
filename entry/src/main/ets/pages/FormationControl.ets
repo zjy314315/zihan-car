@@ -42,7 +42,7 @@ struct FormationControl {
   @State cmdLinear: number = 0;
   @State cmdAngular: number = 0;
   @State lostFrames: number = 0;
-  @State frameTs: number = 0
+  @State snapshotUrl: string = 'http://192.168.1.11:5001/formation/frame'
   @State showConfig: boolean = false;
   @State targetBboxHeight: number = 200;
   @State confidenceThreshold: number = 0.5;
@@ -74,7 +74,12 @@ struct FormationControl {
   }
   startPolling(): void { this.stopPolling(); this.pollTimer = setInterval(() => { this.getStatus(); }, 1500); }
   stopPolling(): void { if (this.pollTimer !== -1) { clearInterval(this.pollTimer); this.pollTimer = -1; } }
-  startFrameTimer(): void { if (this.frameTimer === -1) { this.frameTimer = setInterval(() => { this.frameTs = Date.now() }, 200); } }
+  startFrameTimer(): void {
+    if (this.frameTimer !== -1) return;
+    this.frameTimer = setInterval(() => {
+      this.snapshotUrl = `http://${this.carIp}:5001/formation/frame?t=${Date.now()}`;
+    }, 250);
+  }
 
   build() {
     Column() {
@@ -99,7 +104,7 @@ struct FormationControl {
       Row({ space: '8vp' }) {
         // 左侧：视频
         Column({ space: '4vp' }) {
-          Image(`http://${this.carIp}:5001/formation/frame?t=${this.frameTs}`)
+          VideoComponents({ showControls: false, videoWidth: '100%', videoHeight: '100%' })
             .borderRadius('10vp').layoutWeight(1)
         }
         .width('0vp').layoutWeight(5.5).padding('6vp')
