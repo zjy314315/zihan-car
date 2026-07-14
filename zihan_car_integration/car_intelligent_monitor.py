@@ -24,7 +24,7 @@ from typing import Dict, List, Optional
 
 import cv2
 import numpy as np
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory, Response
 
 try:
     from ultralytics import YOLO
@@ -107,9 +107,10 @@ class FormationController:
         self.session = None
         self.enabled = False
         self.detect_only = False  # 仅检测模式，不发送指令
+        self.last_frame = None  # 用于画检测框
 
         # ---- 检测参数 ----
-        self.confidence_threshold = 0.5
+        self.confidence_threshold = 0.7
         self.iou_threshold = 0.45
         self.input_size = (640, 640)
 
@@ -167,6 +168,13 @@ class FormationController:
             print(f"[Formation] ONNX 模型加载失败: {e}")
             self.session = None
 
+    def _get_car_ip(self):
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80)); ip = s.getsockname()[0]; s.close()
+            return ip
+        except: return "127.0.0.1"
+
     def _init_ros(self):
         if not ROS_AVAILABLE:
             print("[Formation] ROS 不可用，将使用 TCP (端口 6000) 发送控制指令")
@@ -214,7 +222,8 @@ class FormationController:
             x2 = cx + w / 2.0
             y2 = cy + h / 2.0
             boxes.append([x1, y1, x2, y2])
-            scores.append(float(det[4]))
+            final_conf = float(det[4]) * float(det[5])
+            scores.append(final_conf)
 
         boxes_np = np.array(boxes, dtype=np.float32)
         scores_np = np.array(scores, dtype=np.float32)
@@ -245,12 +254,13 @@ class FormationController:
         return results
 
     def _select_target(self, detections: List[Dict]) -> Optional[Dict]:
-        """选择最佳检测作为领航车：面积 × 置信度 最大"""
-        if not detections:
-            return None
-        # 优先面积大 + 置信度高
-        return max(detections,
-                   key=lambda d: d["width"] * d["height"] * d["confidence"])
+        """选择最佳检测作为领航车"""
+        if not detections: return None
+        valid = [d for d in detections
+                 if d["height"] >= 60 and d["width"] >= 45
+                 and d["center_y"] > 150 and d["center_y"] < 380]
+        if not valid: return None
+        return max(valid, key=lambda d: d["width"] * d["height"] * d["confidence"])
 
     # -------- 控制指令发送 --------
     def _send_command_ros(self, linear_x: float, angular_z: float) -> bool:
@@ -267,35 +277,28 @@ class FormationController:
             return False
 
     def _send_command_tcp(self, linear_x: float, angular_z: float) -> bool:
-        """通过 TCP hex 协议发送自由控制指令 (cmd=0x10)"""
         try:
-            def to_signed_byte(val: float) -> int:
-                """映射 -1.0~1.0 到 -100~100"""
-                v = int(round(max(-100.0, min(100.0, val * 100.0))))
-                return v & 0xFF
-
-            sx = to_signed_byte(linear_x)
-            sy = to_signed_byte(angular_z)
-            data = f"{sx:02X}{sy:02X}"
-            content = "011002" + data       # vehicle=01, cmd=0x10, len=2
-            csum = sum(int(content[i:i+2], 16) for i in range(0, len(content), 2)) % 256
-            frame = f"${content}{csum:02X}#"
-
-            with socket.create_connection(("127.0.0.1", 6000), timeout=0.5) as sock:
+            if linear_x > 0.15:
+                direction = 1
+            elif linear_x < -0.15:
+                direction = 2
+            elif angular_z < -0.15:
+                direction = 5
+            elif angular_z > 0.15:
+                direction = 6
+            else:
+                direction = 0
+            data = "%02X" % direction
+            code = "0115" + "%02X" % (len(data)//2 + 2) + data
+            csum = sum(int(code[i:i+2], 16) for i in range(0, len(code), 2)) % 256
+            frame = "$" + code + ("%02X" % csum) + "#"
+            car_ip = self._get_car_ip()
+            with socket.create_connection((car_ip, 6000), timeout=0.5) as sock:
                 sock.sendall(frame.encode())
             return True
-        except Exception as e:
-            print(f"[Formation] TCP 发送失败: {e}")
+        except Exception:
             return False
 
-    def _send_command(self, linear_x: float, angular_z: float):
-        """发送控制指令: 优先 ROS，回退 TCP"""
-        self.cmd_linear = linear_x
-        self.cmd_angular = angular_z
-        if not self._send_command_ros(linear_x, angular_z):
-            self._send_command_tcp(linear_x, angular_z)
-
-    # -------- STOP 指令 --------
     def _send_stop(self):
         """急停"""
         self._send_command(0.0, 0.0)
@@ -303,6 +306,7 @@ class FormationController:
     # -------- 主更新循环 --------
     def update(self, frame: np.ndarray) -> Dict:
         """每帧调用：推理 → 选目标 → PID → 发送指令"""
+        self.last_frame = frame
         if self.session is None:
             return {"status": "model_error", "cmd": {"linear": 0.0, "angular": 0.0}}
 
@@ -913,6 +917,14 @@ def api_start_all():
 
 
 # ============================================================
+
+@app.route("/formation/video_page")
+def api_formation_video_page():
+    fc = service.formation_controller
+    ip = fc._get_car_ip() if hasattr(fc, "_get_car_ip") else "127.0.0.1"
+    return """<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><style>body{margin:0;background:#000;display:flex;align-items:center;justify-content:center;height:100vh;overflow:hidden}img{width:100%;height:auto;display:block}</style></head><body><img id="v" src="/formation/frame"><script>setInterval(function(){document.getElementById("v").src="/formation/frame?t="+Date.now()},200)</script></body></html>"""
+
+
 # 编队控制 API
 # ============================================================
 @app.route("/formation/detect", methods=["POST"])
@@ -1017,6 +1029,32 @@ class CarDiscoveryService:
 
     def stop(self):
         self.running = False
+
+
+
+@app.route("/formation/frame", methods=["GET"])
+def api_formation_frame():
+    """返回带检测框标注的 JPEG 帧"""
+    import io
+    fc = service.formation_controller
+    frame = fc.last_frame
+    if frame is None:
+        return "no frame", 503
+    annotated = frame.copy()
+    target = fc.latest_detection
+    if target:
+        bx = target["bbox"]
+        h_img, w_img = annotated.shape[:2]
+        x1 = int(bx[0] * w_img)
+        y1 = int(bx[1] * h_img)
+        x2 = int(bx[2] * w_img)
+        y2 = int(bx[3] * h_img)
+        cv2.rectangle(annotated, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        conf = target["confidence"]
+        cv2.putText(annotated, f"{conf:.2f}", (x1, y1 - 8),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+    _, jpg = cv2.imencode('.jpg', annotated, [cv2.IMWRITE_JPEG_QUALITY, 75])
+    return Response(jpg.tobytes(), mimetype='image/jpeg')
 
 
 
