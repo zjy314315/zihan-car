@@ -7,14 +7,25 @@ import { ScreenUtils } from "../utils/ScreenUtils"
 import { TCPClientManager } from '../tcp/TCPClientManager';
 import { TCPClientSendUtils } from '../tcp/TCPClientSendUtils';
 import { PreferencesUtils } from '../utils/PreferencesUtils';
+import { VideoComponents } from '../components/VideoComponents';
 
 export default class EntryAbility extends UIAbility {
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     hilog.info(0x0000, 'testTag', '%{public}s', 'Ability onCreate');
 
-    // 初始化首选项单例
     PreferencesUtils.getInstance().init(this.context)
+    this.restoreVideoAddress()
+  }
 
+  async restoreVideoAddress(): Promise<void> {
+    try {
+      let ip: string = await PreferencesUtils.getInstance().netUtils.getIP() as string
+      let port: string = await PreferencesUtils.getInstance().netUtils.getVideoPort() as string
+      if (ip.length > 5) {
+        VideoComponents.ip = ip
+        VideoComponents.port = Number.parseInt(port)
+      }
+    } catch { /* 首次启动无缓存 */ }
   }
 
   onDestroy(): void {
