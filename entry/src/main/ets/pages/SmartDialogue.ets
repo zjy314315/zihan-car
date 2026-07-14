@@ -1,7 +1,7 @@
 import router from '@ohos.router';
 import socket from '@ohos.net.socket';
 import abilityAccessCtrl from '@ohos.abilityAccessCtrl';
-import { common } from '@ohos.app.ability';
+import common from '@ohos.app.ability.common';
 import { speechRecognizer } from '@kit.CoreSpeechKit';
 import { TCPClientManager } from '../tcp/TCPClientManager';
 import { PreferencesUtils } from '../utils/PreferencesUtils';
@@ -13,6 +13,36 @@ interface SpeechResult {
   data?: SpeechResult;
 }
 
+// Speech engine wrapper — ArkTS-compatible (no intersection types)
+class SpeechEngine {
+  private engine: Object;
+
+  constructor(language: string) {
+    this.engine = speechRecognizer.createEngine({ language: language, online: 1 });
+  }
+
+  on(event: string, cb: (result: Object) => void): void {
+    let e = this.engine as Record<string, Function>;
+    if (typeof e.on === 'function') {
+      e.on(event, cb);
+    }
+  }
+
+  startListening(): void {
+    let e = this.engine as Record<string, Function>;
+    if (typeof e.startListening === 'function') {
+      e.startListening({ language: 'zh-CN', locale: 'zh-CN', continuous: false });
+    }
+  }
+
+  stopListening(): void {
+    let e = this.engine as Record<string, Function>;
+    if (typeof e.stopListening === 'function') {
+      e.stopListening();
+    }
+  }
+}
+
 @Entry
 @Component
 struct SmartDialogue {
@@ -22,7 +52,7 @@ struct SmartDialogue {
   @State isListening: boolean = false;
   @State isSending: boolean = false;
   private carIp: string = '';
-  private recognizer: Object | undefined = undefined;
+  private recognizer: SpeechEngine | undefined = undefined;
   private voiceSendTimer: number = -1;
 
   async aboutToAppear(): Promise<void> {
@@ -51,7 +81,7 @@ struct SmartDialogue {
     this.isSending = true;
     this.status = '正在发送给小车...';
     TCPClientManager.getInstance().initNetAddress({ address: this.carIp, port: 6001 } as socket.NetAddress);
-    const payload = `@LLM:${JSON.stringify({ question: text })}` + String.fromCharCode(10);
+    const payload = '@LLM:' + JSON.stringify({ question: text }) + String.fromCharCode(10);
     let sent = await TCPClientManager.getInstance().sendMessage(payload);
     if (!sent && await TCPClientManager.getInstance().connect()) {
       sent = await TCPClientManager.getInstance().sendMessage(payload);
@@ -70,34 +100,18 @@ struct SmartDialogue {
       return;
     }
     try {
-      const api = speechRecognizer as Object;
-      const create = this.getMethod(api, ['createSpeechRecognizer', 'createRecognizer', 'create']);
-      if (!create) {
-        throw new Error('当前设备未提供语音识别服务');
-      }
-      this.recognizer = await Promise.resolve(Reflect.apply(create, api, [])) as Object;
-      this.bindRecognizerEvents(this.recognizer);
-      const start = this.getMethod(this.recognizer, ['startListening', 'start']);
-      if (!start) {
-        throw new Error('当前设备不支持启动语音识别');
-      }
-      const options = { language: 'zh-CN', locale: 'zh-CN', continuous: false };
-      const callbacks = {
-        onResult: (result: Object) => this.receiveSpeechResult(result),
-        onError: (error: Object) => this.receiveSpeechError(error)
-      };
-      try {
-        await Promise.resolve(Reflect.apply(start, this.recognizer, [options, callbacks]));
-      } catch (_) {
-        await Promise.resolve(Reflect.apply(start, this.recognizer, [options]));
-      }
+      this.recognizer = new SpeechEngine('zh-CN');
+      this.recognizer.on('result', (result: Object) => this.receiveSpeechResult(result));
+      this.recognizer.on('recognitionResult', (result: Object) => this.receiveSpeechResult(result));
+      this.recognizer.on('error', (error: Object) => this.receiveSpeechError(error));
+      this.recognizer.startListening();
       this.clearVoiceSendTimer();
       this.isListening = true;
       this.status = '正在聆听，请说出问题';
       this.recognizedText = '正在识别...';
     } catch (error) {
       this.isListening = false;
-      this.status = `语音识别不可用：${this.errorText(error)}`;
+      this.status = '语音识别不可用：' + this.errorText(error);
     }
   }
 
@@ -105,13 +119,10 @@ struct SmartDialogue {
     if (!this.recognizer) {
       return;
     }
-    const stop = this.getMethod(this.recognizer, ['stopListening', 'stop', 'cancel']);
     try {
-      if (stop) {
-        Reflect.apply(stop, this.recognizer, []);
-      }
+      this.recognizer.stopListening();
     } catch (error) {
-      this.status = `停止识别失败：${this.errorText(error)}`;
+      this.status = '停止识别失败：' + this.errorText(error);
       return;
     }
     this.isListening = false;
@@ -121,18 +132,6 @@ struct SmartDialogue {
     } else if (sendAfterStop) {
       this.status = '未识别到有效语音，请重试';
     }
-  }
-
-  private bindRecognizerEvents(recognizer: Object): void {
-    const subscribe = this.getMethod(recognizer, ['on', 'addListener']);
-    if (!subscribe) {
-      return;
-    }
-    const onResult = (result: Object) => this.receiveSpeechResult(result);
-    const onError = (error: Object) => this.receiveSpeechError(error);
-    Reflect.apply(subscribe, recognizer, ['result', onResult]);
-    Reflect.apply(subscribe, recognizer, ['recognitionResult', onResult]);
-    Reflect.apply(subscribe, recognizer, ['error', onError]);
   }
 
   private receiveSpeechResult(result: Object): void {
@@ -149,7 +148,7 @@ struct SmartDialogue {
   private receiveSpeechError(error: Object): void {
     this.clearVoiceSendTimer();
     this.isListening = false;
-    this.status = `语音识别失败：${this.errorText(error)}`;
+    this.status = '语音识别失败：' + this.errorText(error);
   }
 
   private scheduleVoiceQuestion(text: string): void {
@@ -173,16 +172,6 @@ struct SmartDialogue {
     const manager = abilityAccessCtrl.createAtManager();
     const result = await manager.requestPermissionsFromUser(context, ['ohos.permission.MICROPHONE']);
     return result.authResults.length > 0 && result.authResults[0] === 0;
-  }
-
-  private getMethod(target: Object, names: string[]): Function | undefined {
-    for (let index = 0; index < names.length; index++) {
-      const candidate = Reflect.get(target, names[index]);
-      if (typeof candidate === 'function') {
-        return candidate as Function;
-      }
-    }
-    return undefined;
   }
 
   private speechText(result: Object): string {
