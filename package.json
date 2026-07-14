@@ -1,0 +1,27 @@
+{
+  "name": "oh-ai-car-ros-app",
+  "version": "1.0.0",
+  "description": "```\r DevEco Studio 4.1 Release\r 构建版本：4.1.0.400, built on April 9, 2024\r Build #DS-223.8617.56.36.410400\r Runtime version: 17.0.6+10-b829.5 amd64\r ```",
+  "main": "index.js",
+  "directories": {
+    "doc": "doc"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zjy314315/zihan-car.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/zjy314315/zihan-car/issues"
+  },
+  "homepage": "https://github.com/zjy314315/zihan-car#readme",
+  "dependencies": {
+    "docx": "^9.7.1"
+  }
+}

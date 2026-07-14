@@ -9,6 +9,7 @@
     "pages/FallDetection",
     "pages/MusicPlayer",
     "pages/FormationControl",
-    "pages/AutoFunctions"
+    "pages/AutoFunctions",
+    "pages/MappingNav"
   ]
 }

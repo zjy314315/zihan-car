@@ -68,6 +68,7 @@ struct Index {
             GridItem() { FuncCard({ title: '小车编队', desc: '领航跟随与自动编队', tag: '编队', action: () => { router.pushUrl({ url: 'pages/FormationControl' }) } }) }
             GridItem() { FuncCard({ title: '智能对话', desc: '文字提问与语音回复', tag: 'AI', action: () => { router.pushUrl({ url: 'pages/SmartDialogue' }) } }) }
             GridItem() { FuncCard({ title: '基础功能', desc: '跟随导航与避障', tag: '导航', action: () => { router.pushUrl({ url: 'pages/AutoFunctions' }) } }) }
+            GridItem() { FuncCard({ title: '建图导航', desc: 'SLAM 建图与自动巡查', tag: '地图', action: () => { router.pushUrl({ url: 'pages/MappingNav' }) } }) }
           }
           .columnsTemplate('1fr 1fr').columnsGap('12vp').rowsGap('12vp').width('100%')
 
