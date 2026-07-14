@@ -33,7 +33,20 @@ build-profile.json5
 oh-package.json5
 
 # Large doc files
+# Large doc files
 doc/2408/*.doc
 entry/src/main/ets/pages/NetworkSettings.ets
+doc/2408/
+
+# Car internal code (deployed on car, not part of app)
 car_planning/
+
+# Generated lock files
 package-lock.json
+oh-package-lock.json5
+
+# Desktop temp files
+*.pyc
+__pycache__/
+fix_*.py
+Desktop.ini
