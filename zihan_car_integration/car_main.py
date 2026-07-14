@@ -836,6 +836,7 @@ def index2():
     return render_template_string(INDEX2_HTML)
 
 
+
 @app.route("/video_feed")
 def video_feed():
     return Response(generate_frames(),

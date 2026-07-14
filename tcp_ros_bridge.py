@@ -24,6 +24,8 @@ import sys
 import os
 import signal
 
+from zihan_car_integration.process_lifecycle import ProjectProcessManager
+
 # ============================================================
 # ROS 导入 (如果环境没有 ROS, 可以设置 USE_ROS=False 进行调试)
 # ============================================================
@@ -58,6 +60,8 @@ class TcpRosBridge:
         self.server_socket = None
         self.running = False
         self.audio_lock = threading.Lock()
+        self.lifecycle = ProjectProcessManager()
+        self.dialogue_enabled = False
 
         # ROS 发布器 (在 init_ros 中初始化)
         self.pub_cmd_vel = None
@@ -121,6 +125,11 @@ class TcpRosBridge:
         self.running = False
         if self.server_socket:
             self.server_socket.close()
+        try:
+            result = self.lifecycle.stop_all()
+            print(f"[PROC] stop_all: {result}")
+        except Exception as error:
+            print(f"[PROC] stop_all failed: {error}")
         print("[Server] 服务器已停止")
 
     def answer_app_question(self, question):
@@ -173,6 +182,9 @@ class TcpRosBridge:
                 os.unlink(audio_path)
     def process_app_question(self, line):
         try:
+            if not self.dialogue_enabled:
+                print("[APP] ignored LLM question because dialogue page is not active")
+                return
             question = json.loads(line[len("@LLM:"):]).get("question", "").strip()
             if not question:
                 return
@@ -182,6 +194,27 @@ class TcpRosBridge:
             self.speak_app_answer(answer)
         except Exception as error:
             print(f"[APP] LLM request failed: {error}")
+    def process_lifecycle_command(self, line, client_sock=None):
+        try:
+            payload = json.loads(line[len("@PROC:"):])
+            action = str(payload.get("action", "")).strip().lower()
+            feature = str(payload.get("feature", "")).strip().lower()
+            result = self.lifecycle.handle(action, feature)
+            if action == "stop_all":
+                self.dialogue_enabled = False
+            if feature == "dialogue":
+                if action == "start" and result.get("ok"):
+                    self.dialogue_enabled = True
+                elif action == "stop":
+                    self.dialogue_enabled = False
+            print(f"[PROC] {action} {feature}: {result}")
+            if client_sock:
+                try:
+                    client_sock.sendall((json.dumps(result, ensure_ascii=False) + "\n").encode("utf-8"))
+                except OSError:
+                    pass
+        except Exception as error:
+            print(f"[PROC] lifecycle command failed: {error}")
     def handle_client(self, client_sock, addr):
         """处理单个客户端连接"""
         buffer = ""
@@ -193,6 +226,10 @@ class TcpRosBridge:
                     break
 
                 buffer += data.decode("utf-8", errors="ignore")
+
+                while buffer.startswith("@PROC:") and "\n" in buffer:
+                    line, buffer = buffer.split("\n", 1)
+                    self.process_lifecycle_command(line, client_sock)
 
                 while buffer.startswith("@LLM:") and "\n" in buffer:
                     line, buffer = buffer.split("\n", 1)

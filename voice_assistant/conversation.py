@@ -57,6 +57,7 @@ def fixed_reply(message: str) -> str:
         return "\u4f60\u597d\uff0c\u6211\u662f\u5c0f\u8f66\u3002"
     return ""
 
+
 def ask_ollama(url: str, model: str, message: str) -> str:
     payload = {"model": model, "stream": False, "options": {"num_predict": 32, "temperature": 0.2}, "messages": [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": message}]}
     response = requests.post(url, json=payload, timeout=90)
@@ -70,6 +71,12 @@ def speak(text: str) -> None:
         audio_path = audio.name
     try:
         subprocess.run(["espeak-ng", "-v", "zh", "-s", "155", "-w", audio_path, text], check=True)
+        try:
+            subprocess.run(["amixer", "-c", "0", "sset", "PCM", "30"], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            subprocess.run(["aplay", "-D", "plughw:0,0", audio_path], check=True)
+            return
+        except (OSError, subprocess.CalledProcessError) as aplay_error:
+            print(f"aplay playback failed, falling back to paplay: {aplay_error}", file=sys.stderr)
         environment = os.environ.copy()
         environment["XDG_RUNTIME_DIR"] = "/run/user/1000"
         environment["PULSE_SERVER"] = "unix:/run/user/1000/pulse/native"

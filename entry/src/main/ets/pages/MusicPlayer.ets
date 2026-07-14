@@ -7,6 +7,7 @@ import { CarEncode } from '../CarUtill/CarEncode';
 import { CarDirection } from '../CarUtill/CarEnum';
 import { TCPClientManager } from '../tcp/TCPClientManager';
 import { PreferencesUtils } from '../utils/PreferencesUtils';
+import { ProcessLifecycle } from '../utils/ProcessLifecycle';
 
 interface AudioFile {
   name: string;
@@ -52,17 +53,23 @@ struct MusicPlayer {
   ];
 
   aboutToAppear(): void { this.initPage(); }
-  aboutToDisappear(): void { this.stopAll(); }
+  aboutToDisappear(): void { this.stopAll(); ProcessLifecycle.stop('audio'); }
 
   async initPage(): Promise<void> {
     this.carIp = await PreferencesUtils.getInstance().netUtils.getIP() as string;
     this.audioUrl = `http://${this.carIp}:5000`;
+    await ProcessLifecycle.start('audio');
+    await this.waitLifecycle(700);
     TCPClientManager.getInstance().initNetAddress({ address: this.carIp, port: 6000 } as socket.NetAddress);
     this.isConnected = await TCPClientManager.getInstance().isConnect();
     if (!this.isConnected) {
       this.isConnected = await TCPClientManager.getInstance().connect();
     }
     await this.detectAudioServer();
+  }
+
+  private async waitLifecycle(ms: number): Promise<void> {
+    await new Promise<void>((resolve) => { setTimeout(() => resolve(), ms); });
   }
 
   async detectAudioServer(): Promise<void> {

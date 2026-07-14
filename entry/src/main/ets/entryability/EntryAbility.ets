@@ -8,6 +8,7 @@ import { TCPClientManager } from '../tcp/TCPClientManager';
 import { TCPClientSendUtils } from '../tcp/TCPClientSendUtils';
 import { PreferencesUtils } from '../utils/PreferencesUtils';
 import { VideoComponents } from '../components/VideoComponents';
+import { ProcessLifecycle } from '../utils/ProcessLifecycle';
 
 export default class EntryAbility extends UIAbility {
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
@@ -30,6 +31,7 @@ export default class EntryAbility extends UIAbility {
 
   onDestroy(): void {
     hilog.info(0x0000, 'testTag', '%{public}s', 'Ability onDestroy');
+    ProcessLifecycle.stopAll();
   }
 
   onWindowStageCreate(windowStage: window.WindowStage): void {
@@ -60,6 +62,7 @@ export default class EntryAbility extends UIAbility {
   onWindowStageDestroy(): void {
     // Main window is destroyed, release UI related resources
     hilog.info(0x0000, 'testTag', '%{public}s', 'Ability onWindowStageDestroy');
+    ProcessLifecycle.stopAll();
   }
 
   onForeground(): void {
@@ -70,5 +73,6 @@ export default class EntryAbility extends UIAbility {
   onBackground(): void {
     // Ability has back to background
     hilog.info(0x0000, 'testTag', '%{public}s', 'Ability onBackground');
+    ProcessLifecycle.stopAll();
   }
 }

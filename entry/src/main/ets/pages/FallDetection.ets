@@ -4,6 +4,7 @@ import http from '@ohos.net.http';
 import { PreferencesUtils } from '../utils/PreferencesUtils';
 import { TCPClientManager } from '../tcp/TCPClientManager';
 import { VideoComponents } from '../components/VideoComponents';
+import { ProcessLifecycle } from '../utils/ProcessLifecycle';
 
 interface FallResult { status: string; confidence: number; detail: string; enabled: boolean; }
 interface YoloPerson { box: number[]; conf: number; }
@@ -38,157 +39,23 @@ struct FallDetection {
   private buzzerTimer: number = -1;
 
   aboutToAppear(): void { this.initPage(); }
-
-  aboutToDisappear(): void {
-    if (this.autoRefreshTimer >= 0) {
-      clearInterval(this.autoRefreshTimer);
-      this.autoRefreshTimer = -1;
-    }
-    if (this.buzzerTimer >= 0) {
-      clearInterval(this.buzzerTimer);
-      this.buzzerTimer = -1;
-    }
-  }
-
+  aboutToDisappear(): void { this.stopMonitor(); ProcessLifecycle.stop('vision'); }
   async initPage(): Promise<void> {
     this.carIp = await PreferencesUtils.getInstance().netUtils.getIP() as string;
     this.serviceBaseUrl = `http://${this.carIp}:5000`;
+    await ProcessLifecycle.start('vision');
+    await this.waitLifecycle(700);
     this.isConnected = await TCPClientManager.getInstance().isConnect();
     if (this.isConnected) { await this.getStatus(); }
   }
 
   build() {
     Column() {
-      // ====== 顶部栏 ======
-      Row({ space: '8vp' }) {
-        Button('← 返回')
-          .fontSize('12fp').fontColor('#ffffff').backgroundColor('#1a1a1a')
-          .borderRadius('6vp').padding({ left: '10vp', right: '10vp', top: '6vp', bottom: '6vp' })
-          .onClick(() => {
-            if (this.autoRefreshTimer >= 0) { clearInterval(this.autoRefreshTimer); this.autoRefreshTimer = -1; }
-            router.back();
-          })
-        Text('摔倒检测').fontSize('15fp').fontWeight(FontWeight.Bold).fontColor('#111111')
-        Blank()
-        // Auto-refresh indicator
-        Text(this.isMonitoring ? '⟳ 实时' : '●').fontSize('9fp')
-          .fontColor(this.isMonitoring ? '#22c55e' : '#999999')
-          .animation({ duration: 800, curve: Curve.Linear, delay: 0, iterations: this.isMonitoring ? -1 : 0 })
-        Circle({ width: '7vp', height: '7vp' }).fill(this.isConnected ? '#22c55e' : '#999999')
-        Text(this.isConnected ? `已连接 ${this.carIp}` : '未连接').fontSize('11fp')
-          .fontColor(this.isConnected ? '#333333' : '#999999')
-        Text(this.isRunning ? ' | 运行中' : ' | 待机').fontSize('11fp')
-          .fontColor(this.isRunning ? '#333333' : '#cccccc')
-      }
-      .width('100%').padding({ left: '10vp', right: '10vp', top: '8vp', bottom: '6vp' })
-      .backgroundColor('#fafafa').border({ width: { bottom: '1vp' }, color: '#e5e5e5' })
-
-      // ===== 摔倒告警横幅 =====
-      if (this.isFallAlarm) {
-        Column() {
-          Row({ space: '6vp' }) {
-            Text('🚨').fontSize('18fp')
-            Text('检测到摔倒事件!').fontSize('14fp').fontWeight(FontWeight.Bold).fontColor('#ffffff')
-            Text('🚨').fontSize('18fp')
-          }
-          .width('100%').justifyContent(FlexAlign.Center)
-
-          Row({ space: '12vp' }) {
-            Text(`置信度: ${this.fallConfidence.toFixed(2)}`).fontSize('11fp').fontColor('#fecaca')
-            Text(`触发: ${this.fallDetail}`).fontSize('10fp').fontColor('#fca5a5')
-              .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-          }
-          .width('100%').justifyContent(FlexAlign.Center).margin({ top: '4vp' })
-
-          if (this.buzzerSeconds > 0) {
-            Text(`🔊 蜂鸣器报警中... ${this.buzzerSeconds}s`).fontSize('11fp')
-              .fontColor('#fbbf24').margin({ top: '3vp' })
-          }
-        }
-        .width('100%').padding({ top: '6vp', bottom: '6vp', left: '10vp', right: '10vp' })
-        .backgroundColor(this.alarmFlash ? '#dc2626' : '#991b1b')
-        .animation({ duration: 400, curve: Curve.EaseInOut, delay: 0, iterations: -1 })
-      }
-
-      // ====== 主体 ======
-      Row({ space: '8vp' }) {
-        // 左侧：视频
-        Column({ space: '4vp' }) {
-          VideoComponents({ showControls: false, videoWidth: '100%', videoHeight: '100%' })
-            .borderRadius('10vp').layoutWeight(1)
-        }
-        .width('0vp').layoutWeight(5.5).padding('6vp')
-        .backgroundColor('#fafafa').borderRadius('12vp').border({ width: '1vp', color: '#e5e5e5' })
-
-        // 右侧：面板
-        Column({ space: '6vp' }) {
-          // 告警条 — flashes when fall detected
-          Row() {
-            Text(this.isFallAlarm ? '⚠ FALL DETECTED' : (this.isMonitoring ? '● MONITORING' : '○ STANDBY'))
-              .fontSize('13fp').fontWeight(FontWeight.Bold).fontColor('#ffffff')
-          }
-          .width('100%').padding('8vp')
-          .backgroundColor(this.isFallAlarm ?
-            (this.alarmFlash ? '#dc2626' : '#991b1b') :
-            (this.isMonitoring ? '#2563eb' : '#6b7280'))
-          .borderRadius('6vp').justifyContent(FlexAlign.Center)
-          .animation({ duration: 500, curve: Curve.EaseInOut, delay: 0, iterations: this.isFallAlarm ? -1 : 0 })
-
-          // 指标面板
-          Row({ space: '4vp' }) {
-            MetricTile({ label: '状态', value: this.fallStatus, highlight: this.isFallAlarm })
-            MetricTile({ label: '人数', value: `${this.peopleCount}`, highlight: false })
-            MetricTile({ label: '置信度', value: this.fallConfidence.toFixed(2), highlight: this.isFallAlarm })
-          }
-
-          // 详细信息栏 — shows real-time debug info
-          Row() {
-            Text(this.fallDetail ? this.fallDetail : '等待检测...')
-              .fontSize('10fp').fontColor(this.isFallAlarm ? '#dc2626' : '#666666')
-              .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
-          }
-          .width('100%').padding('5vp').backgroundColor('#f5f5f5').borderRadius('4vp')
-
-          // 更新时间
-          Row({ space: '4vp' }) {
-            Text('⏱').fontSize('9fp')
-            Text(`更新: ${this.lastUpdateTime}`).fontSize('9fp').fontColor('#999999')
-            Text(`(#${this.refreshCount})`).fontSize('8fp').fontColor('#cccccc')
-          }
-
-          // 按钮区
-          Row({ space: '5vp' }) {
-            Button(this.isMonitoring ? '⏹ 停止' : '▶ 开始')
-              .layoutWeight(1).fontSize('12fp').fontColor('#ffffff')
-              .backgroundColor(this.isMonitoring ? '#ef4444' : '#22c55e')
-              .borderRadius('6vp').height('34vp')
-              .onClick(() => { this.isMonitoring ? this.stopMonitor() : this.startMonitor(); })
-            Button('⚡ 一键全开')
-              .layoutWeight(1).fontSize('12fp').fontColor('#ffffff').backgroundColor('#1a1a1a')
-              .borderRadius('6vp').height('34vp')
-              .onClick(() => { this.startAll(); })
-          }
-          Row({ space: '5vp' }) {
-            Button('刷新').layoutWeight(1).fontSize('12fp').fontColor('#666666').backgroundColor('#f1f1f1')
-              .borderRadius('6vp').height('32vp').onClick(() => { this.getResult(); })
-            Button('状态').layoutWeight(1).fontSize('12fp').fontColor('#666666').backgroundColor('#f1f1f1')
-              .borderRadius('6vp').height('32vp').onClick(() => { this.getStatus(); })
-          }
-
-          // JSON 原始数据（折叠显示）
-          Text(this.resultText).fontSize('9fp').fontColor('#cccccc').lineHeight('12fp').maxLines(3)
-            .textOverflow({ overflow: TextOverflow.Ellipsis }).width('100%')
-            .padding('6vp').backgroundColor('#fafafa').borderRadius('6vp')
-        }
-        .width('0vp').layoutWeight(4.5).padding('8vp')
-        .backgroundColor('#ffffff').borderRadius('12vp').border({ width: '1vp', color: '#e5e5e5' })
-      }
-      .width('100%').layoutWeight(1).padding('8vp')
-    }
-    .width('100%').height('100%').backgroundColor('#ffffff')
+      // ====== ?????? ======
+  private async waitLifecycle(ms: number): Promise<void> {
+    await new Promise<void>((resolve) => { setTimeout(() => resolve(), ms); });
   }
 
-  // ====== 业务逻辑 ======
   private startAutoRefresh(): void {
     if (this.autoRefreshTimer >= 0) return; // already running
     this.autoRefreshTimer = setInterval(() => {

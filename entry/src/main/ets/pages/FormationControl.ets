@@ -5,6 +5,7 @@ import web_webview from '@ohos.web.webview';
 import { PreferencesUtils } from '../utils/PreferencesUtils';
 import { TCPClientManager } from '../tcp/TCPClientManager';
 import { VideoComponents } from '../components/VideoComponents';
+import { ProcessLifecycle } from '../utils/ProcessLifecycle';
 
 interface FormationTarget { bbox: number[]; confidence: number; }
 interface FormationCmd { linear: number; angular: number; }
@@ -53,13 +54,25 @@ struct FormationControl {
   async initPage(): Promise<void> {
     this.carIp = await PreferencesUtils.getInstance().netUtils.getIP() as string;
     this.serviceBaseUrl = `http://${this.carIp}:5001`;
+    await ProcessLifecycle.start('vision');
+    await ProcessLifecycle.start('monitor');
+    await this.waitLifecycle(1200);
     this.isConnected = await TCPClientManager.getInstance().isConnect();
     if (this.isConnected) {
       await this.startDetect();
       this.startPolling();
     }
   }
-  cleanup(): void { this.stopPolling(); this.callService(http.RequestMethod.POST, '/formation/stop'); }
+  cleanup(): void {
+    this.stopPolling();
+    this.callService(http.RequestMethod.POST, '/formation/stop');
+    ProcessLifecycle.stop('monitor');
+    ProcessLifecycle.stop('vision');
+  }
+  private async waitLifecycle(ms: number): Promise<void> {
+    await new Promise<void>((resolve) => { setTimeout(() => resolve(), ms); });
+  }
+
   startPolling(): void { this.stopPolling(); this.pollTimer = setInterval(() => { this.getStatus(); }, 1500); }
   stopPolling(): void { if (this.pollTimer !== -1) { clearInterval(this.pollTimer); this.pollTimer = -1; } }
 

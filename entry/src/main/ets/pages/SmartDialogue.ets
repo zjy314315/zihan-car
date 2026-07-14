@@ -2,6 +2,7 @@ import router from '@ohos.router';
 import socket from '@ohos.net.socket';
 import { TCPClientManager } from '../tcp/TCPClientManager';
 import { PreferencesUtils } from '../utils/PreferencesUtils';
+import { ProcessLifecycle } from '../utils/ProcessLifecycle';
 
 @Entry
 @Component
@@ -13,11 +14,13 @@ struct SmartDialogue {
 
   async aboutToAppear(): Promise<void> {
     this.carIp = await PreferencesUtils.getInstance().netUtils.getIP() as string;
+    await ProcessLifecycle.start('dialogue');
     TCPClientManager.getInstance().initNetAddress({ address: this.carIp, port: 6001 } as socket.NetAddress);
     await TCPClientManager.getInstance().connect();
   }
 
   aboutToDisappear(): void {
+    ProcessLifecycle.stop('dialogue');
     TCPClientManager.getInstance().closeConnection();
     TCPClientManager.getInstance().initNetAddress({ address: this.carIp, port: 6000 } as socket.NetAddress);
   }

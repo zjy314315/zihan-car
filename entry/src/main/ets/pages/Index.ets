@@ -2,6 +2,7 @@ import router from '@ohos.router';
 import { TCPClientManager } from '../tcp/TCPClientManager';
 import { PreferencesUtils } from '../utils/PreferencesUtils';
 import { VideoComponents } from '../components/VideoComponents';
+import { ProcessLifecycle } from '../utils/ProcessLifecycle';
 
 @Entry
 @Component
@@ -14,9 +15,10 @@ struct Index {
   onPageShow(): void { this.checkStatus(); }
 
   async checkStatus(): Promise<void> {
+    this.carIp = await PreferencesUtils.getInstance().netUtils.getIP() as string;
+    ProcessLifecycle.start('app');
     this.isConnected = await TCPClientManager.getInstance().isConnect();
     if (this.isConnected) {
-      this.carIp = await PreferencesUtils.getInstance().netUtils.getIP() as string;
       this.connLabel = `已连接 ${this.carIp}`;
       // 恢复视频连接地址（否则 VideoComponents 会一直用默认 IP）
       VideoComponents.ip = this.carIp;
