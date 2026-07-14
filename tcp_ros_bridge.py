@@ -61,7 +61,6 @@ class TcpRosBridge:
         self.running = False
         self.audio_lock = threading.Lock()
         self.lifecycle = ProjectProcessManager()
-        self.dialogue_enabled = False
 
         # ROS 发布器 (在 init_ros 中初始化)
         self.pub_cmd_vel = None
@@ -182,9 +181,6 @@ class TcpRosBridge:
                 os.unlink(audio_path)
     def process_app_question(self, line):
         try:
-            if not self.dialogue_enabled:
-                print("[APP] ignored LLM question because dialogue page is not active")
-                return
             question = json.loads(line[len("@LLM:"):]).get("question", "").strip()
             if not question:
                 return
@@ -200,12 +196,6 @@ class TcpRosBridge:
             action = str(payload.get("action", "")).strip().lower()
             feature = str(payload.get("feature", "")).strip().lower()
             result = self.lifecycle.handle(action, feature)
-            if action == "start_all" and result.get("ok"):
-                self.dialogue_enabled = True
-            elif action == "stop_all":
-                self.dialogue_enabled = False
-            elif feature == "dialogue" and action == "start" and result.get("ok"):
-                self.dialogue_enabled = True
             print(f"[PROC] {action} {feature}: {result}")
             if client_sock:
                 try:

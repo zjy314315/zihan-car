@@ -53,9 +53,16 @@ class Listener:
 
 def fixed_reply(message: str) -> str:
     normalized = "".join(message.split())
+    if normalized in {"\u4f60\u662f\u8c01", "\u4f60\u53eb\u4ec0\u4e48", "\u4f60\u662f\u4ec0\u4e48"}:
+        return "\u6211\u662f\u5b50\u6db5\u7684\u667a\u80fd\u5c0f\u8f66\u3002"
     if "\u4f60\u597d" in normalized or normalized in {"\u60a8\u597d", "\u5c0f\u8f66\u4f60\u597d", "\u5462"}:
         return "\u4f60\u597d\uff0c\u6211\u662f\u5c0f\u8f66\u3002"
     return ""
+
+
+def should_ignore_phrase(message: str) -> bool:
+    normalized = "".join(message.split())
+    return len(normalized) < 2
 
 
 def ask_ollama(url: str, model: str, message: str) -> str:
@@ -100,6 +107,10 @@ def main() -> int:
             if not phrase:
                 continue
             print(f"You: {phrase}", flush=True)
+            if should_ignore_phrase(phrase):
+                print(f"Ignored short phrase: {phrase}", flush=True)
+                listener.reset()
+                continue
             if phrase in {"????", "????", "????"}:
                 speak("??,???")
                 return 0
