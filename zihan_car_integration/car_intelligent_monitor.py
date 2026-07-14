@@ -24,7 +24,7 @@ from typing import Dict, List, Optional
 
 import cv2
 import numpy as np
-from flask import Flask, jsonify, request, send_from_directory
+from flask import Flask, jsonify, request, send_from_directory, Response
 
 try:
     from ultralytics import YOLO
@@ -107,9 +107,10 @@ class FormationController:
         self.session = None
         self.enabled = False
         self.detect_only = False  # 仅检测模式，不发送指令
+        self.last_frame = None  # 用于画检测框
 
         # ---- 检测参数 ----
-        self.confidence_threshold = 0.5
+        self.confidence_threshold = 0.3
         self.iou_threshold = 0.45
         self.input_size = (640, 640)
 
@@ -167,6 +168,13 @@ class FormationController:
             print(f"[Formation] ONNX 模型加载失败: {e}")
             self.session = None
 
+    def _get_car_ip(self):
+        try:
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80)); ip = s.getsockname()[0]; s.close()
+            return ip
+        except: return "127.0.0.1"
+
     def _init_ros(self):
         if not ROS_AVAILABLE:
             print("[Formation] ROS 不可用，将使用 TCP (端口 6000) 发送控制指令")
@@ -214,7 +222,8 @@ class FormationController:
             x2 = cx + w / 2.0
             y2 = cy + h / 2.0
             boxes.append([x1, y1, x2, y2])
-            scores.append(float(det[4]))
+            final_conf = float(det[4]) * float(det[5])
+            scores.append(final_conf)
 
         boxes_np = np.array(boxes, dtype=np.float32)
         scores_np = np.array(scores, dtype=np.float32)
@@ -245,12 +254,13 @@ class FormationController:
         return results
 
     def _select_target(self, detections: List[Dict]) -> Optional[Dict]:
-        """选择最佳检测作为领航车：面积 × 置信度 最大"""
-        if not detections:
-            return None
-        # 优先面积大 + 置信度高
-        return max(detections,
-                   key=lambda d: d["width"] * d["height"] * d["confidence"])
+        """选择最佳检测作为领航车"""
+        if not detections: return None
+        valid = [d for d in detections
+                 if d["height"] >= 50 and d["width"] >= 35
+                 and d["center_y"] > 30 and d["center_y"] < 480]
+        if not valid: return None
+        return max(valid, key=lambda d: d["width"] * d["height"] * d["confidence"])
 
     # -------- 控制指令发送 --------
     def _send_command_ros(self, linear_x: float, angular_z: float) -> bool:
@@ -303,6 +313,7 @@ class FormationController:
     # -------- 主更新循环 --------
     def update(self, frame: np.ndarray) -> Dict:
         """每帧调用：推理 → 选目标 → PID → 发送指令"""
+        self.last_frame = frame
         if self.session is None:
             return {"status": "model_error", "cmd": {"linear": 0.0, "angular": 0.0}}
 
@@ -1017,6 +1028,32 @@ class CarDiscoveryService:
 
     def stop(self):
         self.running = False
+
+
+
+@app.route("/formation/frame", methods=["GET"])
+def api_formation_frame():
+    """返回带检测框标注的 JPEG 帧"""
+    import io
+    fc = service.formation_controller
+    frame = fc.last_frame
+    if frame is None:
+        return "no frame", 503
+    annotated = frame.copy()
+    target = fc.latest_detection
+    if target:
+        bx = target["bbox"]
+        h_img, w_img = annotated.shape[:2]
+        x1 = int(bx[0] * w_img)
+        y1 = int(bx[1] * h_img)
+        x2 = int(bx[2] * w_img)
+        y2 = int(bx[3] * h_img)
+        cv2.rectangle(annotated, (x1, y1), (x2, y2), (0, 255, 0), 2)
+        conf = target["confidence"]
+        cv2.putText(annotated, f"{conf:.2f}", (x1, y1 - 8),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+    _, jpg = cv2.imencode('.jpg', annotated, [cv2.IMWRITE_JPEG_QUALITY, 75])
+    return Response(jpg.tobytes(), mimetype='image/jpeg')
 
 
 

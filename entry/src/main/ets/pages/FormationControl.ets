@@ -42,6 +42,7 @@ struct FormationControl {
   @State cmdLinear: number = 0;
   @State cmdAngular: number = 0;
   @State lostFrames: number = 0;
+  @State frameTs: number = 0
   @State showConfig: boolean = false;
   @State targetBboxHeight: number = 200;
   @State confidenceThreshold: number = 0.5;
@@ -51,6 +52,7 @@ struct FormationControl {
 
   private dialogShown: boolean = false;
   private pollTimer: number = -1;
+  private frameTimer: number = -1;
 
   aboutToAppear(): void { this.initPage(); }
   aboutToDisappear(): void { this.cleanup(); }
@@ -62,11 +64,17 @@ struct FormationControl {
     if (this.isConnected) {
       await this.startDetect();
       this.startPolling();
+      this.startFrameTimer();
     }
   }
-  cleanup(): void { this.stopPolling(); this.callService(http.RequestMethod.POST, '/formation/stop'); }
+  cleanup(): void {
+    this.stopPolling();
+    if (this.frameTimer !== -1) { clearInterval(this.frameTimer); this.frameTimer = -1; }
+    this.callService(http.RequestMethod.POST, '/formation/stop');
+  }
   startPolling(): void { this.stopPolling(); this.pollTimer = setInterval(() => { this.getStatus(); }, 1500); }
   stopPolling(): void { if (this.pollTimer !== -1) { clearInterval(this.pollTimer); this.pollTimer = -1; } }
+  startFrameTimer(): void { if (this.frameTimer === -1) { this.frameTimer = setInterval(() => { this.frameTs = Date.now() }, 200); } }
 
   build() {
     Column() {
@@ -91,7 +99,7 @@ struct FormationControl {
       Row({ space: '8vp' }) {
         // 左侧：视频
         Column({ space: '4vp' }) {
-          VideoComponents({ showControls: false, videoWidth: '100%', videoHeight: '100%' })
+          Image(`http://${this.carIp}:5001/formation/frame?t=${this.frameTs}`)
             .borderRadius('10vp').layoutWeight(1)
         }
         .width('0vp').layoutWeight(5.5).padding('6vp')
