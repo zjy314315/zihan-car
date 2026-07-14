@@ -4,6 +4,7 @@ import http from '@ohos.net.http';
 import web_webview from '@ohos.web.webview';
 import { PreferencesUtils } from '../utils/PreferencesUtils';
 import { TCPClientManager } from '../tcp/TCPClientManager';
+import { VideoComponents } from '../components/VideoComponents';
 
 interface FormationTarget { bbox: number[]; confidence: number; }
 interface FormationCmd { linear: number; angular: number; }
@@ -85,7 +86,7 @@ struct FormationControl {
       Row({ space: '8vp' }) {
         // 左侧：标注帧视频
         Column({ space: '4vp' }) {
-          Web({ src: `http://${this.carIp}:5001/formation/video_page`, controller: new web_webview.WebviewController() })
+          Web({ src: `http://${VideoComponents.ip}:5001/formation/video_page`, controller: new web_webview.WebviewController() })
             .javaScriptAccess(true).domStorageAccess(true)
             .borderRadius('10vp').layoutWeight(1)
         }
