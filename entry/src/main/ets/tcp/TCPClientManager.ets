@@ -183,4 +183,11 @@ export class TCPClientManager {
   public static set receiveMessage(value: (message: string) => void) {
     TCPClientManager._receiveMessage = value;
   }
+
+  /** 发送进程生命周期命令到 bridge (port 6001) */
+  public async sendProcCommand(action: string, feature: string): Promise<boolean> {
+    let payload = JSON.stringify({ action: action, feature: feature });
+    let msg = '@PROC:' + payload + '\n';
+    return await this.sendMessage(msg);
+  }
 }

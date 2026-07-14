@@ -40,6 +40,9 @@ import subprocess
 import signal
 import urllib.error
 import urllib.request
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from typing import Optional, List, Dict
 
 import cv2
@@ -111,6 +114,8 @@ class AIService:
         self.person_lost_frames = 0        # track how long person has been missing
         self.last_known_standing = False
         self.fall_cooldown = 0             # cooldown frames after a fall event
+        self.emergency_email = ""          # set by phone app
+        self.amap_key = "4aa56ceebd276f40f94ae045085353c6"
 
         self._load_models()
         self.known_faces = self._load_faces()
@@ -485,32 +490,91 @@ class AIService:
             return {"enabled": True, "status": "normal", "confidence": 0.0, "detail": detail}
         return {"enabled": True, "status": "monitoring", "confidence": 0.0, "detail": detail}
 
+    @staticmethod
+    def _build_buzzer_cmd(on: bool, delay_ms: int = 2550) -> bytes:
+        state = '01' if on else '00'
+        delay_val = min(255, max(0, delay_ms // 10)) if on else 0
+        delay = format(delay_val, '02X')
+        info = state + delay
+        size = format(len(info) + 2, '02X')
+        code = '01' + '13' + size + info
+        checksum = 0
+        for i in range(0, len(code), 2):
+            checksum = (checksum + int(code[i:i+2], 16)) % 256
+        return ('$' + code + format(checksum, '02X') + '#').encode('ascii')
+
     def _trigger_buzzer(self):
-        """摔倒时触发蜂鸣器报警 3 秒（通过 TCP 发送到 app.py:6000）"""
+        """摔倒时：蜂鸣器 ~2.5 秒"""
         try:
             import socket as sock
+            s_tmp = sock.socket(sock.AF_INET, sock.SOCK_DGRAM)
+            s_tmp.connect(("10.168.202.242", 6000))
+            buzzer_ip = s_tmp.getsockname()[0]
+            s_tmp.close()
             s = sock.socket(sock.AF_INET, sock.SOCK_STREAM)
             s.settimeout(1)
-            s.connect(("127.0.0.1", 6000))
-            # Buzzer ON command: 01=vehicle, 13=buzzer, 04=size, 01=on
-            s.send(bytes.fromhex("01130401"))
+            s.connect((buzzer_ip, 6000))
+            s.send(self._build_buzzer_cmd(True, 2550))
             s.close()
-            print("[Fall] 蜂鸣器 ON")
-            # Schedule OFF after 3 seconds
+            print("[Fall] Buzzer ON (2.5s)")
             def _buzzer_off():
-                time.sleep(3)
+                time.sleep(2.8)
                 try:
                     s2 = sock.socket(sock.AF_INET, sock.SOCK_STREAM)
                     s2.settimeout(1)
-                    s2.connect(("127.0.0.1", 6000))
-                    s2.send(bytes.fromhex("01130400"))  # 00 = off
+                    s2.connect((buzzer_ip, 6000))
+                    s2.send(self._build_buzzer_cmd(False, 0))
                     s2.close()
-                    print("[Fall] 蜂鸣器 OFF")
                 except Exception as e:
-                    print(f"[Fall] 蜂鸣器关闭失败: {e}")
+                    print(f"[Fall] Buzzer off failed: {e}")
             threading.Thread(target=_buzzer_off, daemon=True).start()
         except Exception as e:
-            print(f"[Fall] 蜂鸣器触发失败: {e}")
+            print(f"[Fall] Buzzer failed: {e}")
+
+    # ---- Emergency email ----
+    EMAIL_SMTP_HOST = "smtp.163.com"
+    EMAIL_SMTP_PORT = 465
+    EMAIL_SENDER = "15067859702@163.com"
+    EMAIL_PASSWORD = "JZaiHuzWyH2yfsPy"
+
+    def send_notification_email(self, to_email: str, latitude: float, longitude: float,
+                                 address: str = "") -> dict:
+        if not to_email:
+            return {"status": "error", "message": "收件人邮箱为空"}
+        try:
+            now_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
+            location = address or "({:.6f}, {:.6f})".format(latitude, longitude)
+            coords_text = "{:.6f}, {:.6f}".format(latitude, longitude)
+            map_url = "https://uri.amap.com/marker?position={},{}".format(longitude, latitude)
+            amap_static = ("https://restapi.amap.com/v3/staticmap?zoom=14&size=400*200"
+                           "&markers=mid,,A:{},{}&key={}").format(longitude, latitude, self.amap_key)
+            subject = "【紧急】摔倒检测告警 - 有小朋友摔倒了！"
+            body = """<html><body>
+<h2 style="color:red;">⚠ 检测到摔倒事件 — 有小朋友在此摔倒！</h2>
+<table border="1" cellpadding="8" style="border-collapse:collapse;max-width:500px">
+<tr><td><b>时间</b></td><td>{}</td></tr>
+<tr><td><b>位置</b></td><td>{}</td></tr>
+<tr><td><b>GPS坐标</b></td><td>{}</td></tr>
+<tr><td><b>设备</b></td><td>iCar 智慧小车</td></tr>
+</table>
+<p><a href="{}">📌 查看高德地图定位</a></p>
+<p><img src="{}" style="max-width:400px"/></p>
+<p style="color:#666;font-size:12px;">此邮件由智慧小车自动发送。</p>
+</body></html>""".format(now_str, location, coords_text, map_url, amap_static)
+            msg = MIMEMultipart()
+            msg["Subject"] = subject
+            msg["From"] = self.EMAIL_SENDER
+            msg["To"] = to_email
+            msg.attach(MIMEText(body, "html", "utf-8"))
+            server = smtplib.SMTP_SSL(self.EMAIL_SMTP_HOST, self.EMAIL_SMTP_PORT, timeout=15)
+            server.login(self.EMAIL_SENDER, self.EMAIL_PASSWORD)
+            server.sendmail(self.EMAIL_SENDER, [to_email], msg.as_string())
+            server.quit()
+            print("[Email] 已发送到 {}，位置: {}".format(to_email, location))
+            return {"status": "sent", "to": to_email, "time": now_str, "location": location}
+        except Exception as e:
+            print("[Email] 发送失败: {}".format(e))
+            return {"status": "error", "message": str(e)}
 
     def _detect_fall_improved(self, people, frame):
         """增强启发式摔倒检测（无姿态模型时，简化阈值）
@@ -941,6 +1005,28 @@ def api_fall_events():
         "fall_enabled": ai_service.fall_enabled,
         "current_status": ai_service.latest_result.get("fall", {}).get("status", "unknown"),
     })
+
+
+# --- 紧急联系人 API ---
+@app.route("/emergency/config", methods=["GET", "POST"])
+def api_emergency_config():
+    if request.method == "POST":
+        payload = request.get_json(silent=True) or {}
+        if "email" in payload:
+            ai_service.emergency_email = str(payload["email"]).strip()
+        return jsonify({"status": "saved", "email": ai_service.emergency_email})
+    return jsonify({"email": ai_service.emergency_email})
+
+
+@app.route("/emergency/notify", methods=["POST"])
+def api_emergency_notify():
+    payload = request.get_json(silent=True) or {}
+    to_email = str(payload.get("email", ai_service.emergency_email)).strip()
+    latitude = float(payload.get("latitude", 0))
+    longitude = float(payload.get("longitude", 0))
+    address = str(payload.get("address", "")).strip()
+    result = ai_service.send_notification_email(to_email, latitude, longitude, address)
+    return jsonify(result)
 
 
 # --- 音频 API ---

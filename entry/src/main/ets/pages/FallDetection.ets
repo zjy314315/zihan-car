@@ -1,6 +1,7 @@
 import router from '@ohos.router';
 import promptAction from '@ohos.promptAction';
 import http from '@ohos.net.http';
+import geoLocationManager from '@ohos.geoLocationManager';
 import { PreferencesUtils } from '../utils/PreferencesUtils';
 import { TCPClientManager } from '../tcp/TCPClientManager';
 import { VideoComponents } from '../components/VideoComponents';
@@ -12,7 +13,8 @@ interface FaceData { name: string; status: string; }
 interface LatestResult { face: FaceData; yolo: YoloData; fall: FallResult; timestamp: string | null; }
 interface StatusResponse { running: boolean; face_enabled: boolean; yolo_enabled: boolean; fall_enabled: boolean; latest_result: LatestResult; }
 
-const AUTO_REFRESH_MS: number = 1500; // auto-refresh interval: 1.5 seconds
+const AUTO_REFRESH_MS: number = 1500;
+const AMAP_KEY: string = '4aa56ceebd276f40f94ae045085353c6';
 
 @Entry
 @Component
@@ -31,34 +33,143 @@ struct FallDetection {
   @State fallDetail: string = '';
   @State refreshCount: number = 0;
   @State alarmFlash: boolean = false;
-  @State fallEventCount: number = 0;
-  @State showAlertBanner: boolean = false;
   @State buzzerSeconds: number = 0;
+  @State emergencyEmail: string = '';
+  @State emailSending: boolean = false;
   private autoRefreshTimer: number = -1;
   private buzzerTimer: number = -1;
 
   aboutToAppear(): void { this.initPage(); }
   aboutToDisappear(): void { this.stopAutoRefresh(); }
+
   async initPage(): Promise<void> {
     this.carIp = await PreferencesUtils.getInstance().netUtils.getIP() as string;
     this.serviceBaseUrl = `http://${this.carIp}:5000`;
-    await this.waitLifecycle(700);
     this.isConnected = await TCPClientManager.getInstance().isConnect();
-    if (this.isConnected) { await this.getStatus(); }
+    if (this.isConnected) {
+      await this.getStatus();
+      await this.loadEmergencyConfig();
+    }
   }
 
   build() {
     Column() {
-      // ====== ?????? ======
-  private async waitLifecycle(ms: number): Promise<void> {
-    await new Promise<void>((resolve) => { setTimeout(() => resolve(), ms); });
+      // ====== 顶部栏 ======
+      Row({ space: '8vp' }) {
+        Button('← 返回')
+          .fontSize('12fp').fontColor('#ffffff').backgroundColor('#1a1a1a')
+          .borderRadius('6vp').padding({ left: '10vp', right: '10vp', top: '6vp', bottom: '6vp' })
+          .onClick(() => { router.back(); })
+        Text('摔倒检测').fontSize('15fp').fontWeight(FontWeight.Bold).fontColor('#111111')
+        Blank()
+        Text(this.isMonitoring ? '⟳ 实时' : '●').fontSize('9fp')
+          .fontColor(this.isMonitoring ? '#22c55e' : '#999999')
+        Circle({ width: '7vp', height: '7vp' }).fill(this.isConnected ? '#22c55e' : '#999999')
+        Text(this.isConnected ? `已连接 ${this.carIp}` : '未连接').fontSize('11fp')
+          .fontColor(this.isConnected ? '#333333' : '#999999')
+        Text(this.isRunning ? ' | 运行中' : ' | 待机').fontSize('11fp')
+          .fontColor(this.isRunning ? '#333333' : '#cccccc')
+      }
+      .width('100%').padding({ left: '10vp', right: '10vp', top: '8vp', bottom: '6vp' })
+      .backgroundColor('#fafafa').border({ width: { bottom: '1vp' }, color: '#e5e5e5' })
+
+      // ===== 摔倒告警横幅 =====
+      if (this.isFallAlarm) {
+        Column() {
+          Row({ space: '6vp' }) {
+            Text('🚨').fontSize('18fp')
+            Text('检测到摔倒事件!').fontSize('14fp').fontWeight(FontWeight.Bold).fontColor('#ffffff')
+            Text('🚨').fontSize('18fp')
+          }.width('100%').justifyContent(FlexAlign.Center)
+          Row({ space: '12vp' }) {
+            Text(`置信度: ${this.fallConfidence.toFixed(2)}`).fontSize('11fp').fontColor('#fecaca')
+            Text(`触发: ${this.fallDetail}`).fontSize('10fp').fontColor('#fca5a5').maxLines(1)
+          }.width('100%').justifyContent(FlexAlign.Center).margin({ top: '4vp' })
+          if (this.buzzerSeconds > 0) {
+            Text(`🔊 蜂鸣器报警中... ${this.buzzerSeconds}s`).fontSize('11fp').fontColor('#fbbf24').margin({ top: '3vp' })
+          }
+        }
+        .width('100%').padding({ top: '6vp', bottom: '6vp', left: '10vp', right: '10vp' })
+        .backgroundColor(this.alarmFlash ? '#dc2626' : '#991b1b')
+        .animation({ duration: 400, curve: Curve.EaseInOut, delay: 0, iterations: -1 })
+      }
+
+      // ====== 主体 ======
+      Row({ space: '8vp' }) {
+        // 左侧：视频
+        Column({ space: '4vp' }) {
+          VideoComponents({ showControls: false, videoWidth: '100%', videoHeight: '100%' })
+            .borderRadius('10vp').layoutWeight(1)
+        }
+        .width('0vp').layoutWeight(5.5).padding('6vp')
+        .backgroundColor('#fafafa').borderRadius('12vp').border({ width: '1vp', color: '#e5e5e5' })
+
+        // 右侧：面板
+        Column({ space: '6vp' }) {
+          Row() {
+            Text(this.isFallAlarm ? '⚠ FALL DETECTED' : (this.isMonitoring ? '● MONITORING' : '○ STANDBY'))
+              .fontSize('13fp').fontWeight(FontWeight.Bold).fontColor('#ffffff')
+          }
+          .width('100%').padding('8vp')
+          .backgroundColor(this.isFallAlarm ?
+            (this.alarmFlash ? '#dc2626' : '#991b1b') :
+            (this.isMonitoring ? '#2563eb' : '#6b7280'))
+          .borderRadius('6vp').justifyContent(FlexAlign.Center)
+          .animation({ duration: 500, curve: Curve.EaseInOut, delay: 0, iterations: this.isFallAlarm ? -1 : 0 })
+
+          Row({ space: '4vp' }) {
+            MetricTile({ label: '状态', value: this.fallStatus, highlight: this.isFallAlarm })
+            MetricTile({ label: '人数', value: `${this.peopleCount}`, highlight: false })
+            MetricTile({ label: '置信度', value: this.fallConfidence.toFixed(2), highlight: this.isFallAlarm })
+          }
+
+          Row() {
+            Text(this.fallDetail ? this.fallDetail : '等待检测...')
+              .fontSize('10fp').fontColor(this.isFallAlarm ? '#dc2626' : '#666666')
+              .maxLines(1).textOverflow({ overflow: TextOverflow.Ellipsis })
+          }
+          .width('100%').padding('5vp').backgroundColor('#f5f5f5').borderRadius('4vp')
+
+          Row({ space: '4vp' }) {
+            Text('⏱').fontSize('9fp')
+            Text(`更新: ${this.lastUpdateTime}`).fontSize('9fp').fontColor('#999999')
+            Text(`(#${this.refreshCount})`).fontSize('8fp').fontColor('#cccccc')
+          }
+
+          Row({ space: '5vp' }) {
+            Button(this.isMonitoring ? '⏹ 停止' : '▶ 开始')
+              .layoutWeight(1).fontSize('12fp').fontColor('#ffffff')
+              .backgroundColor(this.isMonitoring ? '#ef4444' : '#22c55e')
+              .borderRadius('6vp').height('34vp')
+              .onClick(() => { this.isMonitoring ? this.stopMonitor() : this.startMonitor(); })
+            Button('⚡ 一键全开')
+              .layoutWeight(1).fontSize('12fp').fontColor('#ffffff').backgroundColor('#1a1a1a')
+              .borderRadius('6vp').height('34vp')
+              .onClick(() => { this.startAll(); })
+          }
+          Row({ space: '5vp' }) {
+            Button('刷新').layoutWeight(1).fontSize('12fp').fontColor('#666666').backgroundColor('#f1f1f1')
+              .borderRadius('6vp').height('32vp').onClick(() => { this.getResult(); })
+            Button('状态').layoutWeight(1).fontSize('12fp').fontColor('#666666').backgroundColor('#f1f1f1')
+              .borderRadius('6vp').height('32vp').onClick(() => { this.getStatus(); })
+          }
+
+          Text(this.resultText).fontSize('9fp').fontColor('#cccccc').lineHeight('12fp').maxLines(3)
+            .textOverflow({ overflow: TextOverflow.Ellipsis }).width('100%')
+            .padding('6vp').backgroundColor('#fafafa').borderRadius('6vp')
+        }
+        .width('0vp').layoutWeight(4.5).padding('8vp')
+        .backgroundColor('#ffffff').borderRadius('12vp').border({ width: '1vp', color: '#e5e5e5' })
+      }
+      .width('100%').layoutWeight(1).padding('8vp')
+    }
+    .width('100%').height('100%').backgroundColor('#ffffff')
   }
 
+  // ====== 业务逻辑 ======
   private startAutoRefresh(): void {
-    if (this.autoRefreshTimer >= 0) return; // already running
-    this.autoRefreshTimer = setInterval(() => {
-      this.getResult();
-    }, AUTO_REFRESH_MS);
+    if (this.autoRefreshTimer >= 0) return;
+    this.autoRefreshTimer = setInterval(() => { this.getResult(); }, AUTO_REFRESH_MS);
   }
 
   private stopAutoRefresh(): void {
@@ -69,7 +180,6 @@ struct FallDetection {
   }
 
   private async startMonitor(): Promise<void> {
-    // Enable YOLO + fall detection on the server
     await this.callService(http.RequestMethod.POST, '/start_yolo');
     let result = await this.callService(http.RequestMethod.POST, '/start_fall');
     if (result.includes('error') || result.includes('失败')) {
@@ -117,9 +227,7 @@ struct FallDetection {
       const data: StatusResponse = JSON.parse(result) as StatusResponse;
       this.isMonitoring = data.fall_enabled;
       this.isRunning = data.running;
-      if (this.isMonitoring) {
-        this.startAutoRefresh();
-      }
+      if (this.isMonitoring) { this.startAutoRefresh(); }
     } catch { /* */ }
     this.resultText = result;
   }
@@ -143,51 +251,27 @@ struct FallDetection {
             this.fallStatus = '摔倒!';
             this.isFallAlarm = true;
             if (!prevAlarm) {
-              promptAction.showToast({ message: '检测到摔倒! 蜂鸣器已启动3秒', duration: 3000 });
-              // Start 3-second buzzer countdown display
+              promptAction.showToast({ message: '检测到摔倒! 蜂鸣器已启动', duration: 3000 });
               this.buzzerSeconds = 3;
               if (this.buzzerTimer >= 0) clearInterval(this.buzzerTimer);
               this.buzzerTimer = setInterval(() => {
                 this.buzzerSeconds--;
-                if (this.buzzerSeconds <= 0) {
-                  clearInterval(this.buzzerTimer);
-                  this.buzzerTimer = -1;
-                }
+                if (this.buzzerSeconds <= 0) { clearInterval(this.buzzerTimer); this.buzzerTimer = -1; }
               }, 1000);
+              this.sendEmergencyNotification();
             }
             break;
-          case 'no_person':
-            this.fallStatus = '无人';
-            if (this.buzzerSeconds <= 0) this.isFallAlarm = false;
-            break;
-          case 'monitoring':
-            this.fallStatus = '监控中';
-            if (this.buzzerSeconds <= 0) this.isFallAlarm = false;
-            break;
-          case 'normal':
-            this.fallStatus = '正常';
-            if (this.buzzerSeconds <= 0) this.isFallAlarm = false;
-            break;
-          case 'fall_disabled':
-            this.fallStatus = '未启用';
-            this.isFallAlarm = false;
-            this.buzzerSeconds = 0;
-            break;
-          default:
-            this.fallStatus = data.fall.status;
-            if (this.buzzerSeconds <= 0) this.isFallAlarm = false;
+          case 'no_person': this.fallStatus = '无人'; if (this.buzzerSeconds <= 0) this.isFallAlarm = false; break;
+          case 'monitoring': this.fallStatus = '监控中'; if (this.buzzerSeconds <= 0) this.isFallAlarm = false; break;
+          case 'normal': this.fallStatus = '正常'; if (this.buzzerSeconds <= 0) this.isFallAlarm = false; break;
+          case 'fall_disabled': this.fallStatus = '未启用'; this.isFallAlarm = false; this.buzzerSeconds = 0; break;
+          default: this.fallStatus = data.fall.status; if (this.buzzerSeconds <= 0) this.isFallAlarm = false;
         }
         this.fallConfidence = data.fall.confidence || 0;
-        if (data.fall.detail) {
-          this.fallDetail = data.fall.detail;
-        }
+        if (data.fall.detail) { this.fallDetail = data.fall.detail; }
       }
-      if (data.yolo && data.yolo.people) {
-        this.peopleCount = data.yolo.people.length;
-      }
-      if (data.timestamp) {
-        this.lastUpdateTime = data.timestamp;
-      }
+      if (data.yolo && data.yolo.people) { this.peopleCount = data.yolo.people.length; }
+      if (data.timestamp) { this.lastUpdateTime = data.timestamp; }
     } catch { /* */ }
   }
 
@@ -199,8 +283,8 @@ struct FallDetection {
     return `${h}:${m}:${s}`;
   }
 
-  private async callService(method: http.RequestMethod, path: string, payload?: Object): Promise<string> {
-    const requestUrl = `${this.serviceBaseUrl.trim().replace(/\/$/, '')}${path}`;
+  private async callService(method: http.RequestMethod, path: string, payload?: Object, fullUrl?: string): Promise<string> {
+    const requestUrl = fullUrl || `${this.serviceBaseUrl.trim().replace(/\/$/, '')}${path}`;
     const httpRequest = http.createHttp();
     try {
       const response: http.HttpResponse = await new Promise((resolve, reject) => {
@@ -214,6 +298,52 @@ struct FallDetection {
     } catch (error) { return `请求失败`; }
     finally { httpRequest.destroy(); }
   }
+
+  // ===== 紧急联系人 + GPS + 邮件 =====
+  private async loadEmergencyConfig(): Promise<void> {
+    let result = await this.callService(http.RequestMethod.GET, '/emergency/config');
+    try { let d = JSON.parse(result) as Record<string, Object>; this.emergencyEmail = (d['email'] as string) || ''; } catch { /* */ }
+  }
+
+  private async reverseGeocode(lat: number, lng: number): Promise<string> {
+    try {
+      let url = `https://restapi.amap.com/v3/geocode/regeo?key=${AMAP_KEY}&location=${lng},${lat}&radius=50&extensions=base`;
+      let result = await this.callService(http.RequestMethod.GET, '', undefined, url);
+      let data = JSON.parse(result) as Record<string, Object>;
+      if (data['status'] === '1') {
+        let regeo = data['regeocode'] as Record<string, Object>;
+        if (regeo) { return (regeo['formatted_address'] as string) || ''; }
+      }
+    } catch { /* */ }
+    return '';
+  }
+
+  private async getCurrentLocation(): Promise<Record<string, Object>> {
+    try {
+      let location = await geoLocationManager.getCurrentLocation();
+      let address = await this.reverseGeocode(location.latitude, location.longitude);
+      return { 'latitude': location.latitude, 'longitude': location.longitude, 'address': address, 'success': true };
+    } catch (e) {
+      return { 'latitude': 0, 'longitude': 0, 'address': '', 'success': false };
+    }
+  }
+
+  private async sendEmergencyNotification(): Promise<void> {
+    if (!this.emergencyEmail) { return; }
+    this.emailSending = true;
+    let loc = await this.getCurrentLocation();
+    let address = (loc['address'] as string) || 'GPS未获取到';
+    let payload: Record<string, Object> = {
+      'email': this.emergencyEmail, 'latitude': loc['latitude'],
+      'longitude': loc['longitude'], 'address': address
+    };
+    let result = await this.callService(http.RequestMethod.POST, '/emergency/notify', payload);
+    this.emailSending = false;
+    try {
+      let data = JSON.parse(result) as Record<string, Object>;
+      if (data['status'] === 'sent') { promptAction.showToast({ message: '已发送紧急邮件：' + address }); }
+    } catch { /* */ }
+  }
 }
 
 @Component
@@ -224,15 +354,12 @@ struct MetricTile {
 
   build() {
     Column({ space: '2vp' }) {
-      Text(this.value)
-        .fontSize('14fp').fontWeight(FontWeight.Bold)
-        .fontColor(this.highlight ? '#dc2626' : '#111111')
-        .maxLines(1)
+      Text(this.value).fontSize('14fp').fontWeight(FontWeight.Bold)
+        .fontColor(this.highlight ? '#dc2626' : '#111111').maxLines(1)
       Text(this.label).fontSize('9fp').fontColor('#999999')
     }
     .layoutWeight(1).padding('6vp')
-    .backgroundColor(this.highlight ? '#fef2f2' : '#fafafa')
-    .borderRadius('6vp')
+    .backgroundColor(this.highlight ? '#fef2f2' : '#fafafa').borderRadius('6vp')
     .border({ width: this.highlight ? '1vp' : '0vp', color: '#fecaca' })
   }
 }
