@@ -1,59 +1,15 @@
 import router from '@ohos.router';
 import socket from '@ohos.net.socket';
-import abilityAccessCtrl from '@ohos.abilityAccessCtrl';
-import common from '@ohos.app.ability.common';
-import { speechRecognizer } from '@kit.CoreSpeechKit';
 import { TCPClientManager } from '../tcp/TCPClientManager';
 import { PreferencesUtils } from '../utils/PreferencesUtils';
-
-interface SpeechResult {
-  text?: string;
-  result?: string;
-  transcript?: string;
-  data?: SpeechResult;
-}
-
-// Speech engine wrapper — ArkTS-compatible (no intersection types)
-class SpeechEngine {
-  private engine: Object;
-
-  constructor(language: string) {
-    this.engine = speechRecognizer.createEngine({ language: language, online: 1 });
-  }
-
-  on(event: string, cb: (result: Object) => void): void {
-    let e = this.engine as Record<string, Function>;
-    if (typeof e.on === 'function') {
-      e.on(event, cb);
-    }
-  }
-
-  startListening(): void {
-    let e = this.engine as Record<string, Function>;
-    if (typeof e.startListening === 'function') {
-      e.startListening({ language: 'zh-CN', locale: 'zh-CN', continuous: false });
-    }
-  }
-
-  stopListening(): void {
-    let e = this.engine as Record<string, Function>;
-    if (typeof e.stopListening === 'function') {
-      e.stopListening();
-    }
-  }
-}
 
 @Entry
 @Component
 struct SmartDialogue {
   @State question: string = '';
-  @State recognizedText: string = '点击开始语音提问，识别结果会显示在这里。';
   @State status: string = '等待提问';
-  @State isListening: boolean = false;
   @State isSending: boolean = false;
   private carIp: string = '';
-  private recognizer: SpeechEngine | undefined = undefined;
-  private voiceSendTimer: number = -1;
 
   async aboutToAppear(): Promise<void> {
     this.carIp = await PreferencesUtils.getInstance().netUtils.getIP() as string;
@@ -62,14 +18,12 @@ struct SmartDialogue {
   }
 
   aboutToDisappear(): void {
-    this.clearVoiceSendTimer();
-    this.stopListening(false);
     TCPClientManager.getInstance().closeConnection();
     TCPClientManager.getInstance().initNetAddress({ address: this.carIp, port: 6000 } as socket.NetAddress);
   }
 
   async sendQuestion(): Promise<void> {
-    await this.sendQuestionText(this.question.trim(), '请先输入问题或使用语音识别');
+    await this.sendQuestionText(this.question.trim(), '请先输入问题');
   }
 
   private async sendQuestionText(text: string, emptyTip: string): Promise<void> {
@@ -81,117 +35,13 @@ struct SmartDialogue {
     this.isSending = true;
     this.status = '正在发送给小车...';
     TCPClientManager.getInstance().initNetAddress({ address: this.carIp, port: 6001 } as socket.NetAddress);
-    const payload = '@LLM:' + JSON.stringify({ question: text }) + String.fromCharCode(10);
+    const payload = `@LLM:${JSON.stringify({ question: text })}` + String.fromCharCode(10);
     let sent = await TCPClientManager.getInstance().sendMessage(payload);
     if (!sent && await TCPClientManager.getInstance().connect()) {
       sent = await TCPClientManager.getInstance().sendMessage(payload);
     }
     this.isSending = false;
     this.status = sent ? '小车正在生成并播放回复' : '连接不可用，请先连接小车';
-  }
-
-  async toggleListening(): Promise<void> {
-    if (this.isListening) {
-      this.stopListening(true);
-      return;
-    }
-    if (!await this.requestMicrophonePermission()) {
-      this.status = '未获得麦克风权限';
-      return;
-    }
-    try {
-      this.recognizer = new SpeechEngine('zh-CN');
-      this.recognizer.on('result', (result: Object) => this.receiveSpeechResult(result));
-      this.recognizer.on('recognitionResult', (result: Object) => this.receiveSpeechResult(result));
-      this.recognizer.on('error', (error: Object) => this.receiveSpeechError(error));
-      this.recognizer.startListening();
-      this.clearVoiceSendTimer();
-      this.isListening = true;
-      this.status = '正在聆听，请说出问题';
-      this.recognizedText = '正在识别...';
-    } catch (error) {
-      this.isListening = false;
-      this.status = '语音识别不可用：' + this.errorText(error);
-    }
-  }
-
-  private stopListening(sendAfterStop: boolean): void {
-    if (!this.recognizer) {
-      return;
-    }
-    try {
-      this.recognizer.stopListening();
-    } catch (error) {
-      this.status = '停止识别失败：' + this.errorText(error);
-      return;
-    }
-    this.isListening = false;
-    this.clearVoiceSendTimer();
-    if (sendAfterStop && this.question.trim()) {
-      this.sendQuestion();
-    } else if (sendAfterStop) {
-      this.status = '未识别到有效语音，请重试';
-    }
-  }
-
-  private receiveSpeechResult(result: Object): void {
-    const text = this.speechText(result).trim();
-    if (!text) {
-      return;
-    }
-    this.question = text;
-    this.recognizedText = text;
-    this.status = '已识别，准备发送给小车...';
-    this.scheduleVoiceQuestion(text);
-  }
-
-  private receiveSpeechError(error: Object): void {
-    this.clearVoiceSendTimer();
-    this.isListening = false;
-    this.status = '语音识别失败：' + this.errorText(error);
-  }
-
-  private scheduleVoiceQuestion(text: string): void {
-    this.clearVoiceSendTimer();
-    this.voiceSendTimer = setTimeout(() => {
-      this.voiceSendTimer = -1;
-      this.stopListening(false);
-      this.sendQuestionText(text, '未识别到有效语音，请重试');
-    }, 700);
-  }
-
-  private clearVoiceSendTimer(): void {
-    if (this.voiceSendTimer !== -1) {
-      clearTimeout(this.voiceSendTimer);
-      this.voiceSendTimer = -1;
-    }
-  }
-
-  private async requestMicrophonePermission(): Promise<boolean> {
-    const context = getContext(this) as common.UIAbilityContext;
-    const manager = abilityAccessCtrl.createAtManager();
-    const result = await manager.requestPermissionsFromUser(context, ['ohos.permission.MICROPHONE']);
-    return result.authResults.length > 0 && result.authResults[0] === 0;
-  }
-
-  private speechText(result: Object): string {
-    try {
-      const data = JSON.parse(JSON.stringify(result)) as SpeechResult | string;
-      if (typeof data === 'string') {
-        return data;
-      }
-      return data.text || data.transcript || data.result || data.data?.text || data.data?.transcript || data.data?.result || '';
-    } catch (_) {
-      return '';
-    }
-  }
-
-  private errorText(error: Object): string {
-    try {
-      return JSON.stringify(error);
-    } catch (_) {
-      return '系统服务异常';
-    }
   }
 
   build() {
@@ -203,20 +53,12 @@ struct SmartDialogue {
           .onClick(() => router.back())
         Column({ space: '2vp' }) {
           Text('智能对话').fontSize('22fp').fontWeight(FontWeight.Bold).fontColor('#111111')
-          Text('文字或语音提问，小车语音回答').fontSize('13fp').fontColor('#64748b')
+          Text('文字提问，小车语音回答').fontSize('13fp').fontColor('#64748b')
         }.alignItems(HorizontalAlign.Start).layoutWeight(1)
       }.width('100%').padding({ left: '20vp', right: '20vp', top: '20vp' })
 
       Scroll() {
         Column({ space: '16vp' }) {
-          Column({ space: '12vp' }) {
-            Text('语音提问').fontSize('16fp').fontWeight(FontWeight.Bold).fontColor('#111111').width('100%')
-            Text(this.recognizedText).fontSize('16fp').fontColor('#334155').lineHeight('24fp').width('100%')
-            Button(this.isListening ? '停止并发送' : '开始语音提问')
-              .onClick(() => this.toggleListening())
-              .width('100%').height('52vp').fontSize('16fp').fontWeight(FontWeight.Medium)
-              .fontColor('#ffffff').backgroundColor(this.isListening ? '#dc2626' : '#2563eb').borderRadius('8vp')
-          }.width('100%').padding('18vp').backgroundColor('#eff6ff').border({ width: '1vp', color: '#bfdbfe' }).borderRadius('8vp')
 
           Column({ space: '10vp' }) {
             Text('文字提问').fontSize('16fp').fontWeight(FontWeight.Bold).fontColor('#111111').width('100%')
