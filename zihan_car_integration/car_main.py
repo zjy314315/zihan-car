@@ -38,6 +38,8 @@ import math
 import threading
 import subprocess
 import signal
+import urllib.error
+import urllib.request
 from typing import Optional, List, Dict
 
 import cv2
@@ -72,6 +74,7 @@ CAMERA_DEVICE = "/dev/video0"
 FRAME_WIDTH = 480
 FRAME_HEIGHT = 360
 SERVICE_PORT = 5000
+INTERNAL_MONITOR_URL = os.environ.get("ZIHAN_INTERNAL_MONITOR_URL", "http://127.0.0.1:5001")
 
 os.makedirs(AUDIO_DIR, exist_ok=True)
 
@@ -994,6 +997,66 @@ def audio_status():
 
 
 # ========== 启动 ==========
+
+# --- Formation proxy API: public 5000 -> internal monitor 127.0.0.1:5001 ---
+def _proxy_formation(path: str, method: str = "GET"):
+    url = INTERNAL_MONITOR_URL.rstrip("/") + path
+    data = None
+    headers = {}
+    if method != "GET":
+        payload = request.get_data()
+        data = payload if payload else None
+        content_type = request.headers.get("Content-Type")
+        if content_type:
+            headers["Content-Type"] = content_type
+    try:
+        req = urllib.request.Request(url, data=data, headers=headers, method=method)
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            body = resp.read()
+            content_type = resp.headers.get("Content-Type", "application/json")
+            return Response(body, status=resp.status, content_type=content_type)
+    except urllib.error.HTTPError as err:
+        return Response(err.read(), status=err.code, content_type=err.headers.get("Content-Type", "application/json"))
+    except Exception as exc:
+        return jsonify({"status": "error", "message": str(exc), "target": url}), 502
+
+
+@app.route("/formation/video_page")
+def formation_video_page():
+    return _proxy_formation("/formation/video_page")
+
+
+@app.route("/formation/frame")
+def formation_frame():
+    suffix = ""
+    if request.query_string:
+        suffix = "?" + request.query_string.decode("utf-8", "ignore")
+    return _proxy_formation("/formation/frame" + suffix)
+
+
+@app.route("/formation/detect", methods=["POST"])
+def formation_detect():
+    return _proxy_formation("/formation/detect", "POST")
+
+
+@app.route("/formation/start", methods=["POST"])
+def formation_start():
+    return _proxy_formation("/formation/start", "POST")
+
+
+@app.route("/formation/stop", methods=["POST"])
+def formation_stop():
+    return _proxy_formation("/formation/stop", "POST")
+
+
+@app.route("/formation/status")
+def formation_status():
+    return _proxy_formation("/formation/status")
+
+
+@app.route("/formation/config", methods=["POST"])
+def formation_config():
+    return _proxy_formation("/formation/config", "POST")
 
 @app.route("/video_page")
 def video_page():

@@ -10,7 +10,7 @@ A) Proxy mode (recommended): Your zihan-car backend proxies requests to the
    car's face service. The page calls your backend at `/api/face/*`.
 
 B) Direct mode: The page calls the car's face service directly (set PROXY_BASE to
-   the car address, e.g. http://10.231.195.242:5001). Use this only if CORS
+   the car address, e.g. http://10.168.202.242:5000). Use this only if CORS
    / network allows.
 
 Files
@@ -37,11 +37,11 @@ pip install requests
 
 Linux / macOS:
 ```bash
-export CAR_FACE_SERVICE_URL=http://10.231.195.242:5001
+export CAR_FACE_SERVICE_URL=http://10.168.202.242:5000
 ```
 Windows (PowerShell):
 ```powershell
-$env:CAR_FACE_SERVICE_URL = 'http://10.231.195.242:5001'
+$env:CAR_FACE_SERVICE_URL = 'http://10.168.202.242:5000'
 ```
 
 4. Register the blueprint in your Flask app factory or main app file:
@@ -58,7 +58,7 @@ app.register_blueprint(face_bp, url_prefix='/api/face')
 Direct mode (no proxy)
 ----------------------
 - Edit `face_recognition_page.html` and set PROXY_BASE to the car address
-  `http://10.231.195.242:5001`. Place the file into your project's static folder and open it.
+  `http://10.168.202.242:5000`. Place the file into your project's static folder and open it.
 
 Notes / Troubleshooting
 -----------------------

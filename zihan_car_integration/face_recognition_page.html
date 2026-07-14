@@ -29,9 +29,9 @@
 <script>
 // Integration options:
 // - Option A (recommended): Put this page inside your zihan-car web app and set PROXY_BASE to "/api/face" and implement a backend proxy to forward requests to the car's face service.
-// - Option B: Set PROXY_BASE to the direct car IP, e.g. "http://10.231.195.242:5001" so page calls the face service directly.
+// - Option B: Set PROXY_BASE to the direct car IP, e.g. "http://10.168.202.242:5000" so page calls the face service directly.
 
-const PROXY_BASE = '/api/face'; // change to car IP like 'http://10.231.195.242:5001' if calling directly
+const PROXY_BASE = '/api/face'; // change to car IP like 'http://10.168.202.242:5000' if calling directly
 
 async function registerFace(){
   const name = document.getElementById('name').value.trim();

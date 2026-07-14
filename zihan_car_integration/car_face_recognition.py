@@ -13,10 +13,10 @@
     python3 car_face_recognition.py
 
 接口示例：
-    开始识别： curl -X POST http://127.0.0.1:5001/start
-    停止识别： curl -X POST http://127.0.0.1:5001/stop
-    查看状态： curl http://127.0.0.1:5001/status
-    注册人脸： curl -X POST http://127.0.0.1:5001/register -H "Content-Type: application/json" -d '{"name":"张三"}'
+    开始识别： curl -X POST http://127.0.0.1:5000/start
+    停止识别： curl -X POST http://127.0.0.1:5000/stop
+    查看状态： curl http://127.0.0.1:5000/status
+    注册人脸： curl -X POST http://127.0.0.1:5000/register -H "Content-Type: application/json" -d '{"name":"张三"}'
 """
 
 import json
@@ -338,5 +338,5 @@ def api_result():
 
 
 if __name__ == "__main__":
-    print("启动人脸识别服务，监听 0.0.0.0:5001")
-    app.run(host="0.0.0.0", port=5001, debug=False)
+    print("启动人脸识别服务，监听 0.0.0.0:5000")
+    app.run(host="0.0.0.0", port=5000, debug=False)

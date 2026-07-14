@@ -29,7 +29,7 @@ interface FormationConfigPayload {
 @Entry
 @Component
 struct FormationControl {
-  @State serviceBaseUrl: string = 'http://10.168.202.242:5001';
+  @State serviceBaseUrl: string = 'http://10.168.202.242:5000';
   @State carIp: string = '';
   @State isConnected: boolean = false;
   @State isDetectMode: boolean = false;
@@ -52,7 +52,7 @@ struct FormationControl {
 
   async initPage(): Promise<void> {
     this.carIp = await PreferencesUtils.getInstance().netUtils.getIP() as string;
-    this.serviceBaseUrl = `http://${this.carIp}:5001`;
+    this.serviceBaseUrl = `http://${this.carIp}:5000`;
 
     await this.waitLifecycle(1200);
     this.isConnected = await TCPClientManager.getInstance().isConnect();
@@ -94,7 +94,7 @@ struct FormationControl {
       Row({ space: '8vp' }) {
         // 左侧：标注帧视频
         Column({ space: '4vp' }) {
-          Web({ src: `http://${VideoComponents.ip}:5001/formation/video_page`, controller: new web_webview.WebviewController() })
+          Web({ src: `http://${VideoComponents.ip}:5000/formation/video_page`, controller: new web_webview.WebviewController() })
             .javaScriptAccess(true).domStorageAccess(true)
             .borderRadius('10vp').layoutWeight(1)
         }

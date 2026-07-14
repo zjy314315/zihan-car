@@ -4,7 +4,7 @@ to a remote face service (the car's face service). Put this file under your
 zihan-car Flask app and register the blueprint.
 
 Usage:
-  - Set environment variable CAR_FACE_SERVICE_URL, e.g. http://10.231.195.242:5001
+  - Set environment variable CAR_FACE_SERVICE_URL, e.g. http://10.168.202.242:5000
   - Register the blueprint in your app factory:
       from backend_proxy import face_bp
       app.register_blueprint(face_bp, url_prefix='/api/face')
@@ -25,7 +25,7 @@ import requests
 
 face_bp = Blueprint('face_bp', __name__, static_folder=None)
 
-CAR_FACE_SERVICE_URL = os.environ.get('CAR_FACE_SERVICE_URL', 'http://10.231.195.242:5001')
+CAR_FACE_SERVICE_URL = os.environ.get('CAR_FACE_SERVICE_URL', 'http://10.168.202.242:5000')
 
 @face_bp.route('/page')
 def page():

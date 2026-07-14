@@ -1012,7 +1012,7 @@ class CarDiscoveryService:
                     "name": self.car_name,
                     "ip": ip,
                     "tcp_port": 6000,
-                    "monitor_port": 5001,
+                    "monitor_port": 5000,
                     "video_port": 5000,
                 })
                 sock.sendto(msg.encode("utf-8"), ("255.255.255.255", self.port))
@@ -1059,9 +1059,9 @@ def api_formation_frame():
 
 
 if __name__ == "__main__":
-    print("启动统一智能监控服务，监听 0.0.0.0:5001")
+    print("启动统一智能监控服务，监听 127.0.0.1:5001（由 5000 对外代理）")
     print("  编队控制 API: /formation/start /formation/stop /formation/status /formation/config")
     discovery_service = CarDiscoveryService()
     discovery_service.start()
     print("[Discovery] 小车名称: " + discovery_service.car_name)
-    app.run(host="0.0.0.0", port=5001, debug=False)
+    app.run(host="127.0.0.1", port=5001, debug=False)

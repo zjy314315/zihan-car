@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 HarmonyOS App <-> ROS TCP Bridge
-监听 6000 端口，接收 App 发送的十六进制指令，转发到 ROS
+监听 6001 端口，接收 App 生命周期/对话消息；普通控制走 6000
 
 协议格式: $01 TYPE SIZE DATA CHECKSUM#
     例: $0115020103#
@@ -54,7 +54,7 @@ class TcpRosBridge:
         7: "刹车停止",
     }
 
-    def __init__(self, host="0.0.0.0", port=6000):
+    def __init__(self, host="0.0.0.0", port=6001):
         self.host = host
         self.port = port
         self.server_socket = None
@@ -507,7 +507,7 @@ def signal_handler(sig, frame):
 
 
 if __name__ == "__main__":
-    port = int(sys.argv[1]) if len(sys.argv) > 1 else 6000
+    port = int(sys.argv[1]) if len(sys.argv) > 1 else 6001
 
     bridge = TcpRosBridge(port=port)
 
