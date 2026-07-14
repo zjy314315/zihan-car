@@ -340,6 +340,14 @@ struct MusicPlayer {
     if (this.hasAudioServer) { this.callAudioApi(`/audio/volume?level=${v}`); }
   }
 
+  private startAutoDance(): void {
+    this.clearDanceStartTimer();
+    this.startDance();
+  }
+
+  private clearDanceStartTimer(): void {
+    if (this.danceStartTimer !== -1) { clearTimeout(this.danceStartTimer); this.danceStartTimer = -1; }
+  }
   private startDance(): void {
     if (!this.isPlaying) {
       promptAction.showToast({ message: '请先播放音乐' });
