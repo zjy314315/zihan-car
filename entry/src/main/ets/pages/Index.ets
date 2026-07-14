@@ -2,7 +2,6 @@ import router from '@ohos.router';
 import { TCPClientManager } from '../tcp/TCPClientManager';
 import { PreferencesUtils } from '../utils/PreferencesUtils';
 import { VideoComponents } from '../components/VideoComponents';
-import { ProcessLifecycle } from '../utils/ProcessLifecycle';
 
 @Entry
 @Component
@@ -16,7 +15,6 @@ struct Index {
 
   async checkStatus(): Promise<void> {
     this.carIp = await PreferencesUtils.getInstance().netUtils.getIP() as string;
-    ProcessLifecycle.start('app');
     this.isConnected = await TCPClientManager.getInstance().isConnect();
     if (this.isConnected) {
       this.connLabel = `已连接 ${this.carIp}`;

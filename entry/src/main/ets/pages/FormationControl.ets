@@ -5,7 +5,6 @@ import web_webview from '@ohos.web.webview';
 import { PreferencesUtils } from '../utils/PreferencesUtils';
 import { TCPClientManager } from '../tcp/TCPClientManager';
 import { VideoComponents } from '../components/VideoComponents';
-import { ProcessLifecycle } from '../utils/ProcessLifecycle';
 
 interface FormationTarget { bbox: number[]; confidence: number; }
 interface FormationCmd { linear: number; angular: number; }
@@ -30,7 +29,7 @@ interface FormationConfigPayload {
 @Entry
 @Component
 struct FormationControl {
-  @State serviceBaseUrl: string = 'http://192.168.1.11:5001';
+  @State serviceBaseUrl: string = 'http://10.168.202.242:5001';
   @State carIp: string = '';
   @State isConnected: boolean = false;
   @State isDetectMode: boolean = false;
@@ -49,13 +48,12 @@ struct FormationControl {
   private pollTimer: number = -1;
 
   aboutToAppear(): void { this.initPage(); }
-  aboutToDisappear(): void { this.cleanup(); }
+  aboutToDisappear(): void { this.stopPolling(); }
 
   async initPage(): Promise<void> {
     this.carIp = await PreferencesUtils.getInstance().netUtils.getIP() as string;
     this.serviceBaseUrl = `http://${this.carIp}:5001`;
-    await ProcessLifecycle.start('vision');
-    await ProcessLifecycle.start('monitor');
+
     await this.waitLifecycle(1200);
     this.isConnected = await TCPClientManager.getInstance().isConnect();
     if (this.isConnected) {
@@ -65,9 +63,6 @@ struct FormationControl {
   }
   cleanup(): void {
     this.stopPolling();
-    this.callService(http.RequestMethod.POST, '/formation/stop');
-    ProcessLifecycle.stop('monitor');
-    ProcessLifecycle.stop('vision');
   }
   private async waitLifecycle(ms: number): Promise<void> {
     await new Promise<void>((resolve) => { setTimeout(() => resolve(), ms); });

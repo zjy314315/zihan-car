@@ -4,7 +4,6 @@ import http from '@ohos.net.http';
 import { PreferencesUtils } from '../utils/PreferencesUtils';
 import { TCPClientManager } from '../tcp/TCPClientManager';
 import { VideoComponents } from '../components/VideoComponents';
-import { ProcessLifecycle } from '../utils/ProcessLifecycle';
 
 interface FallResult { status: string; confidence: number; detail: string; enabled: boolean; }
 interface YoloPerson { box: number[]; conf: number; }
@@ -18,7 +17,7 @@ const AUTO_REFRESH_MS: number = 1500; // auto-refresh interval: 1.5 seconds
 @Entry
 @Component
 struct FallDetection {
-  @State serviceBaseUrl: string = 'http://192.168.1.11:5000';
+  @State serviceBaseUrl: string = 'http://10.168.202.242:5000';
   @State resultText: string = '等待数据...';
   @State isConnected: boolean = false;
   @State isMonitoring: boolean = false;
@@ -39,11 +38,10 @@ struct FallDetection {
   private buzzerTimer: number = -1;
 
   aboutToAppear(): void { this.initPage(); }
-  aboutToDisappear(): void { this.stopMonitor(); ProcessLifecycle.stop('vision'); }
+  aboutToDisappear(): void { this.stopAutoRefresh(); }
   async initPage(): Promise<void> {
     this.carIp = await PreferencesUtils.getInstance().netUtils.getIP() as string;
     this.serviceBaseUrl = `http://${this.carIp}:5000`;
-    await ProcessLifecycle.start('vision');
     await this.waitLifecycle(700);
     this.isConnected = await TCPClientManager.getInstance().isConnect();
     if (this.isConnected) { await this.getStatus(); }

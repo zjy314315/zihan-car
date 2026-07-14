@@ -16,6 +16,15 @@ export default class EntryAbility extends UIAbility {
 
     PreferencesUtils.getInstance().init(this.context)
     this.restoreVideoAddress()
+    this.startBackend();
+  }
+
+  private async startBackend(): Promise<void> {
+    await ProcessLifecycle.startAll();
+  }
+
+  private async stopBackend(): Promise<void> {
+    await ProcessLifecycle.stopAll();
   }
 
   async restoreVideoAddress(): Promise<void> {
@@ -31,7 +40,7 @@ export default class EntryAbility extends UIAbility {
 
   onDestroy(): void {
     hilog.info(0x0000, 'testTag', '%{public}s', 'Ability onDestroy');
-    ProcessLifecycle.stopAll();
+    this.stopBackend();
   }
 
   onWindowStageCreate(windowStage: window.WindowStage): void {
@@ -62,17 +71,17 @@ export default class EntryAbility extends UIAbility {
   onWindowStageDestroy(): void {
     // Main window is destroyed, release UI related resources
     hilog.info(0x0000, 'testTag', '%{public}s', 'Ability onWindowStageDestroy');
-    ProcessLifecycle.stopAll();
+    this.stopBackend();
   }
 
   onForeground(): void {
     // Ability has brought to foreground
     hilog.info(0x0000, 'testTag', '%{public}s', 'Ability onForeground');
+    this.startBackend();
   }
 
   onBackground(): void {
     // Ability has back to background
     hilog.info(0x0000, 'testTag', '%{public}s', 'Ability onBackground');
-    ProcessLifecycle.stopAll();
   }
 }

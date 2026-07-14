@@ -4,7 +4,6 @@ import http from '@ohos.net.http';
 import { PreferencesUtils } from '../utils/PreferencesUtils';
 import { TCPClientManager } from '../tcp/TCPClientManager';
 import { VideoComponents } from '../components/VideoComponents';
-import { ProcessLifecycle } from '../utils/ProcessLifecycle';
 
 interface FacePayload { name: string; }
 interface StatusData { running: boolean; face_enabled: boolean; }
@@ -15,7 +14,7 @@ interface FaceResultData { face?: FaceInfo; status?: string; name?: string; }
 @Component
 struct FaceRecognition {
   @State name: string = '';
-  @State serviceBaseUrl: string = 'http://192.168.1.11:5000';
+  @State serviceBaseUrl: string = 'http://10.168.202.242:5000';
   @State statusText: string = '等待操作';
   @State resultText: string = '等待数据...';
   @State isConnected: boolean = false;
@@ -24,12 +23,11 @@ struct FaceRecognition {
   @State carIp: string = '';
 
   aboutToAppear(): void { this.initPage(); }
-  aboutToDisappear(): void { this.stopRecognize(); ProcessLifecycle.stop('vision'); }
+  aboutToDisappear(): void { }
 
   async initPage(): Promise<void> {
     this.carIp = await PreferencesUtils.getInstance().netUtils.getIP() as string;
     this.serviceBaseUrl = `http://${this.carIp}:5000`;
-    await ProcessLifecycle.start('vision');
     await this.waitLifecycle(700);
     this.isConnected = await TCPClientManager.getInstance().isConnect();
     if (this.isConnected) { await this.getStatus(); }

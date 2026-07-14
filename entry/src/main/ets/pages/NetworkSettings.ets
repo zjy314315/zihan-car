@@ -192,7 +192,7 @@ struct NetworkSettings {
 
 @Component
 struct LoginComponent {
-  @State ip: string = '192.168.1.11'
+  @State ip: string = '10.168.202.242'
   @State tcpPort: string = '6000'
   @State videoPort: string = '5000'
   connectSuccessRun: () => void = () => {}

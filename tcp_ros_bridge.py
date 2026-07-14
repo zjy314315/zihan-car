@@ -200,13 +200,12 @@ class TcpRosBridge:
             action = str(payload.get("action", "")).strip().lower()
             feature = str(payload.get("feature", "")).strip().lower()
             result = self.lifecycle.handle(action, feature)
-            if action == "stop_all":
+            if action == "start_all" and result.get("ok"):
+                self.dialogue_enabled = True
+            elif action == "stop_all":
                 self.dialogue_enabled = False
-            if feature == "dialogue":
-                if action == "start" and result.get("ok"):
-                    self.dialogue_enabled = True
-                elif action == "stop":
-                    self.dialogue_enabled = False
+            elif feature == "dialogue" and action == "start" and result.get("ok"):
+                self.dialogue_enabled = True
             print(f"[PROC] {action} {feature}: {result}")
             if client_sock:
                 try:

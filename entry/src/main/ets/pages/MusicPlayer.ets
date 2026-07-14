@@ -7,7 +7,6 @@ import { CarEncode } from '../CarUtill/CarEncode';
 import { CarDirection } from '../CarUtill/CarEnum';
 import { TCPClientManager } from '../tcp/TCPClientManager';
 import { PreferencesUtils } from '../utils/PreferencesUtils';
-import { ProcessLifecycle } from '../utils/ProcessLifecycle';
 
 interface AudioFile {
   name: string;
@@ -23,7 +22,7 @@ interface DanceAction {
 @Component
 struct MusicPlayer {
   @State carIp: string = '';
-  @State audioUrl: string = 'http://192.168.1.11:5000';
+  @State audioUrl: string = 'http://10.168.202.242:5000';
   @State volume: number = 70;
   @State isPlaying: boolean = false;
   @State currentTrack: number = 0;
@@ -37,6 +36,7 @@ struct MusicPlayer {
   @State danceMode: boolean = false;
   @State bpm: number = 120;
   private danceTimer: number = -1;
+  private danceStartTimer: number = -1;
   private danceStopTimer: number = -1;
   private danceActionTimer: number = -1;
   private danceStep: number = 0;
@@ -53,12 +53,11 @@ struct MusicPlayer {
   ];
 
   aboutToAppear(): void { this.initPage(); }
-  aboutToDisappear(): void { this.stopAll(); ProcessLifecycle.stop('audio'); }
+  aboutToDisappear(): void { this.stopTimer(); this.stopDanceTimers(); }
 
   async initPage(): Promise<void> {
     this.carIp = await PreferencesUtils.getInstance().netUtils.getIP() as string;
     this.audioUrl = `http://${this.carIp}:5000`;
-    await ProcessLifecycle.start('audio');
     await this.waitLifecycle(700);
     TCPClientManager.getInstance().initNetAddress({ address: this.carIp, port: 6000 } as socket.NetAddress);
     this.isConnected = await TCPClientManager.getInstance().isConnect();
@@ -127,7 +126,7 @@ struct MusicPlayer {
         Button('鈫?杩斿洖')
           .fontSize('12fp').fontColor('#ffffff').backgroundColor('#1a1a1a')
           .borderRadius('6vp').padding({ left: '10vp', right: '10vp', top: '6vp', bottom: '6vp' })
-          .onClick(() => { this.stopAll(); router.back(); })
+          .onClick(() => { this.stopTimer(); this.stopDanceTimers(); router.back(); })
         Text('闊充箰鎾斁').fontSize('15fp').fontWeight(FontWeight.Bold).fontColor('#111111')
         Blank()
         Text(this.statusText).fontSize('10fp').fontColor('#999999').maxLines(1)
@@ -347,6 +346,13 @@ struct MusicPlayer {
 
   private clearDanceStartTimer(): void {
     if (this.danceStartTimer !== -1) { clearTimeout(this.danceStartTimer); this.danceStartTimer = -1; }
+  }
+
+  private stopDanceTimers(): void {
+    if (this.danceTimer !== -1) { clearInterval(this.danceTimer); this.danceTimer = -1; }
+    if (this.danceStartTimer !== -1) { clearTimeout(this.danceStartTimer); this.danceStartTimer = -1; }
+    if (this.danceStopTimer !== -1) { clearTimeout(this.danceStopTimer); this.danceStopTimer = -1; }
+    if (this.danceActionTimer !== -1) { clearTimeout(this.danceActionTimer); this.danceActionTimer = -1; }
   }
   private startDance(): void {
     if (!this.isPlaying) {

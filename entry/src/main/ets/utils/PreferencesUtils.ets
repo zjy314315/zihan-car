@@ -74,7 +74,7 @@ export class NetInfoPreferencesUtils {
 
   async getIP() {
     await this.waitInit();
-    return this.pref.get(NetInfoPreferencesUtils.KEY_IP, '192.168.1.11')
+    return this.pref.get(NetInfoPreferencesUtils.KEY_IP, '10.168.202.242')
   }
 
   async setIp(v: string) {

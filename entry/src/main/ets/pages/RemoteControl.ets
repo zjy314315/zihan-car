@@ -4,7 +4,6 @@ import { CarEncode } from '../CarUtill/CarEncode';
 import { CarBtnComponents } from '../components/CarBtnComponents';
 import { CarRockerComponents } from '../components/CarRockerComponents';
 import { VideoComponents } from '../components/VideoComponents';
-import { ProcessLifecycle } from '../utils/ProcessLifecycle';
 
 enum CtrlModel { Button = 0, Rocker = 1 }
 
@@ -16,8 +15,8 @@ struct RemoteControl {
   @State isRecording: boolean = false;
   tabs: string[] = ['按钮', '摇杆']
 
-  aboutToAppear(): void { ProcessLifecycle.start('video'); }
-  aboutToDisappear(): void { ProcessLifecycle.stop('video'); }
+  aboutToAppear(): void { }
+  aboutToDisappear(): void { }
 
   build() {
     Column() {
