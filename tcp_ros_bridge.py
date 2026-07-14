@@ -152,18 +152,25 @@ class TcpRosBridge:
         try:
             subprocess.run(["espeak-ng", "-v", "zh", "-s", "155", "-w", audio_path, answer], check=True)
             os.chmod(audio_path, 0o644)
-            subprocess.run([
-                "runuser", "-u", "jetson", "--", "env",
-                "XDG_RUNTIME_DIR=/run/user/1000",
-                "PULSE_SERVER=unix:/run/user/1000/pulse/native",
-                "paplay",
-                "--device=alsa_output.usb-C-Media_Electronics_Inc._USB_Audio_Device-00.analog-stereo",
-                audio_path,
-            ], check=True)
+
+            # Ensure the USB speaker is not muted before every LLM reply.
+            subprocess.run(["amixer", "-c", "0", "sset", "PCM", "30"], check=False)
+
+            try:
+                # This path has been verified on the Jetson car.
+                subprocess.run(["aplay", "-D", "plughw:0,0", audio_path], check=True)
+            except (OSError, subprocess.CalledProcessError):
+                subprocess.run([
+                    "runuser", "-u", "jetson", "--", "env",
+                    "XDG_RUNTIME_DIR=/run/user/1000",
+                    "PULSE_SERVER=unix:/run/user/1000/pulse/native",
+                    "paplay",
+                    "--device=alsa_output.usb-C-Media_Electronics_Inc._USB_Audio_Device-00.analog-stereo",
+                    audio_path,
+                ], check=True)
         finally:
             if os.path.exists(audio_path):
                 os.unlink(audio_path)
-
     def process_app_question(self, line):
         try:
             question = json.loads(line[len("@LLM:"):]).get("question", "").strip()

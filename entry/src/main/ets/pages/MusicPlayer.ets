@@ -1,6 +1,7 @@
 import router from '@ohos.router';
 import promptAction from '@ohos.promptAction';
 import http from '@ohos.net.http';
+import socket from '@ohos.net.socket';
 import { carApi } from '../CarUtill/CarApi';
 import { CarEncode } from '../CarUtill/CarEncode';
 import { CarDirection } from '../CarUtill/CarEnum';
@@ -10,6 +11,11 @@ import { PreferencesUtils } from '../utils/PreferencesUtils';
 interface AudioFile {
   name: string;
   size_kb: number;
+}
+
+interface DanceAction {
+  direction: CarDirection;
+  durationMs: number;
 }
 
 @Entry
@@ -31,7 +37,11 @@ struct MusicPlayer {
   @State bpm: number = 120;
   private danceTimer: number = -1;
   private danceStopTimer: number = -1;
+  private danceActionTimer: number = -1;
   private danceStep: number = 0;
+  private danceRound: number = 0;
+  private danceMaxRounds: number = 0;
+  private dancePlan: DanceAction[] = [];
 
   // 铚傞福鍣ㄥ悗澶囨洸鐩?
   private beepTracks: string[] = ['闊充箰1', '闊充箰2', '闊充箰3', '闊充箰4', '闊充箰5', '闊充箰6', '闊充箰7', '闊充箰8'];
@@ -46,7 +56,11 @@ struct MusicPlayer {
   async initPage(): Promise<void> {
     this.carIp = await PreferencesUtils.getInstance().netUtils.getIP() as string;
     this.audioUrl = `http://${this.carIp}:5000`;
+    TCPClientManager.getInstance().initNetAddress({ address: this.carIp, port: 6000 } as socket.NetAddress);
     this.isConnected = await TCPClientManager.getInstance().isConnect();
+    if (!this.isConnected) {
+      this.isConnected = await TCPClientManager.getInstance().connect();
+    }
     await this.detectAudioServer();
   }
 
@@ -263,6 +277,7 @@ struct MusicPlayer {
     this.isPlaying = true;
     this.elapsed = 0;
     this.startTimer();
+    this.startDance();
   }
 
   pause(): void {
@@ -305,37 +320,98 @@ struct MusicPlayer {
   }
 
   private startDance(): void {
+    if (!this.isPlaying) {
+      promptAction.showToast({ message: '请先播放音乐' });
+      return;
+    }
     if (!this.isConnected) {
       promptAction.showToast({ message: '请先连接小车' });
       return;
     }
-    if (!this.isPlaying) {
-      this.play();
-      if (!this.isPlaying) { return; }
+
+    const plan: DanceAction[] = this.getDancePlan(this.currentTrack);
+    if (plan.length === 0) {
+      this.stopDance();
+      return;
     }
+
     this.stopDance();
     this.danceMode = true;
     this.danceStep = 0;
-    const pattern: CarDirection[] = [CarDirection.Front, CarDirection.Left, CarDirection.After, CarDirection.Right];
-    const beatMs: number = Math.round(60000 / this.bpm);
-    const move = (): void => {
-      if (!this.danceMode) { return; }
-      carApi.send(CarEncode.ButtonCarEncode(pattern[this.danceStep % pattern.length]));
-      this.danceStep++;
-      if (this.danceStopTimer !== -1) { clearTimeout(this.danceStopTimer); }
-      this.danceStopTimer = setTimeout(() => {
-        carApi.send(CarEncode.ButtonCarEncode(CarDirection.Stop));
-      }, Math.round(beatMs * 0.55));
-    };
-    move();
-    this.danceTimer = setInterval(move, beatMs);
+    this.danceRound = 0;
+    this.danceMaxRounds = 10;
+    this.dancePlan = plan;
+    this.runDanceAction();
   }
-
   private stopDance(): void {
     this.danceMode = false;
     if (this.danceTimer !== -1) { clearInterval(this.danceTimer); this.danceTimer = -1; }
     if (this.danceStopTimer !== -1) { clearTimeout(this.danceStopTimer); this.danceStopTimer = -1; }
+    if (this.danceActionTimer !== -1) { clearTimeout(this.danceActionTimer); this.danceActionTimer = -1; }
+    this.danceStep = 0;
+    this.danceRound = 0;
+    this.dancePlan = [];
     carApi.send(CarEncode.ButtonCarEncode(CarDirection.Stop));
+  }
+
+  private runDanceAction(): void {
+    if (!this.danceMode || this.dancePlan.length === 0) { return; }
+    if (this.danceRound >= this.danceMaxRounds) {
+      this.stopDance();
+      return;
+    }
+
+    const action: DanceAction = this.dancePlan[this.danceStep];
+    carApi.send(CarEncode.ButtonCarEncode(action.direction));
+    this.danceStep++;
+    if (this.danceStep >= this.dancePlan.length) {
+      this.danceStep = 0;
+      this.danceRound++;
+    }
+
+    this.danceActionTimer = setTimeout(() => {
+      this.runDanceAction();
+    }, action.durationMs);
+  }
+
+  private getDancePlan(trackIndex: number): DanceAction[] {
+    if (trackIndex === 0) {
+      return [
+        { direction: CarDirection.LeftRotate, durationMs: 500 },
+        { direction: CarDirection.Stop, durationMs: 100 },
+        { direction: CarDirection.RightRotate, durationMs: 500 },
+        { direction: CarDirection.Stop, durationMs: 100 },
+      ];
+    }
+    if (trackIndex === 1) {
+      return [
+        { direction: CarDirection.LeftRotate, durationMs: 300 },
+        { direction: CarDirection.Stop, durationMs: 200 },
+        { direction: CarDirection.LeftRotate, durationMs: 400 },
+        { direction: CarDirection.Stop, durationMs: 100 },
+        { direction: CarDirection.RightRotate, durationMs: 300 },
+        { direction: CarDirection.Stop, durationMs: 200 },
+        { direction: CarDirection.RightRotate, durationMs: 400 },
+        { direction: CarDirection.Stop, durationMs: 100 },
+      ];
+    }
+    if (trackIndex === 2) {
+      return [
+        { direction: CarDirection.Front, durationMs: 300 },
+        { direction: CarDirection.Stop, durationMs: 80 },
+        { direction: CarDirection.After, durationMs: 300 },
+        { direction: CarDirection.Stop, durationMs: 80 },
+        { direction: CarDirection.Front, durationMs: 300 },
+        { direction: CarDirection.Stop, durationMs: 80 },
+        { direction: CarDirection.After, durationMs: 300 },
+        { direction: CarDirection.Stop, durationMs: 100 },
+        { direction: CarDirection.Left, durationMs: 200 },
+        { direction: CarDirection.Stop, durationMs: 80 },
+        { direction: CarDirection.Right, durationMs: 200 },
+        { direction: CarDirection.Stop, durationMs: 100 },
+      ];
+    }
+    return [];
   }
   startTimer(): void {
     this.stopTimer();
