@@ -7,7 +7,8 @@ import { PreferencesUtils } from '../utils/PreferencesUtils';
 @Component
 struct SmartDialogue {
   @State question: string = '';
-  @State status: string = '等待输入';
+  @State recognizedText: string = '输入文字向小车提问';
+  @State status: string = '等待提问';
   private carIp: string = '';
 
   async aboutToAppear(): Promise<void> {
@@ -21,7 +22,7 @@ struct SmartDialogue {
     TCPClientManager.getInstance().initNetAddress({ address: this.carIp, port: 6000 } as socket.NetAddress);
   }
 
-  async sendQuestion() {
+  async sendQuestion(): Promise<void> {
     const text = this.question.trim();
     if (!text) {
       this.status = '请先输入问题';
@@ -30,54 +31,52 @@ struct SmartDialogue {
     this.status = '正在发送给小车...';
     TCPClientManager.getInstance().initNetAddress({ address: this.carIp, port: 6001 } as socket.NetAddress);
     const payload = `@LLM:${JSON.stringify({ question: text })}` + String.fromCharCode(10);
-    const sent = await TCPClientManager.getInstance().sendMessage(payload);
-    this.status = sent ? '小车正在语音回复' : '连接不可用，请先连接小车';
+    let sent = await TCPClientManager.getInstance().sendMessage(payload);
+    if (!sent && await TCPClientManager.getInstance().connect()) {
+      sent = await TCPClientManager.getInstance().sendMessage(payload);
+    }
+    this.status = sent ? '小车正在生成并播放回复' : '连接不可用，请先连接小车';
   }
 
   build() {
-    Column() {
+    Column({ space: '16vp' }) {
       Row({ space: '12vp' }) {
         Button('<')
-          .width('44vp').height('44vp').fontSize('22fp').fontColor('#111111')
-          .backgroundColor('#f5f5f5').borderRadius('22vp')
+          .width('40vp').height('40vp').fontSize('20fp').fontColor('#111111')
+          .backgroundColor('#f1f5f9').borderRadius('8vp')
           .onClick(() => router.back())
-        Column() {
-          Text('语音助手').fontSize('11fp').fontWeight(FontWeight.Bold).fontColor('#707072')
-          Text('智能对话').fontSize('26fp').fontWeight(FontWeight.Bold).fontColor('#111111')
+        Column({ space: '2vp' }) {
+          Text('智能对话').fontSize('22fp').fontWeight(FontWeight.Bold).fontColor('#111111')
+          Text('文字提问，小车语音回答').fontSize('13fp').fontColor('#64748b')
         }.alignItems(HorizontalAlign.Start).layoutWeight(1)
-      }.width('100%').padding({ left: '20vp', right: '20vp', top: '20vp', bottom: '16vp' })
+      }.width('100%').padding({ left: '20vp', right: '20vp', top: '20vp' })
 
       Scroll() {
-        Column({ space: '24vp' }) {
-          Column({ space: '8vp' }) {
-            Text('向小车提问').fontSize('12fp').fontWeight(FontWeight.Bold).fontColor('#707072').width('100%')
-            Text('输入一句话，小车会通过语音回答。').fontSize('22fp').fontWeight(FontWeight.Bold).fontColor('#111111').width('100%')
-          }.width('100%').alignItems(HorizontalAlign.Start)
+        Column({ space: '16vp' }) {
+          Column({ space: '12vp' }) {
+            Text('提问').fontSize('16fp').fontWeight(FontWeight.Bold).fontColor('#111111').width('100%')
+            Text(this.recognizedText).fontSize('14fp').fontColor('#94a3b8').lineHeight('20fp').width('100%')
+          }.width('100%').padding('18vp').backgroundColor('#f8fafc').border({ width: '1vp', color: '#e2e8f0' }).borderRadius('8vp')
 
-          Column({ space: '16vp' }) {
-            TextInput({ placeholder: '例如：介绍一下你现在能做什么', text: this.question })
+          Column({ space: '10vp' }) {
+            Text('文字提问').fontSize('16fp').fontWeight(FontWeight.Bold).fontColor('#111111').width('100%')
+            TextInput({ placeholder: '输入问题，如：打开灯', text: this.question })
               .onChange((value: string) => this.question = value)
-              .width('100%').height('52vp').fontSize('16fp').fontColor('#111111')
-              .backgroundColor('#ffffff').borderRadius('26vp')
-              .padding({ left: '18vp', right: '18vp' })
-
+              .width('100%').height('50vp').fontSize('16fp').fontColor('#111111')
+              .backgroundColor('#ffffff').border({ width: '1vp', color: '#cbd5e1' }).borderRadius('8vp')
+              .padding({ left: '14vp', right: '14vp' })
             Button('发送给小车')
               .onClick(() => this.sendQuestion())
-              .width('100%').height('52vp').fontSize('16fp').fontWeight(FontWeight.Medium)
-              .fontColor('#ffffff').backgroundColor('#111111').borderRadius('28vp')
-          }
-          .width('100%').padding('20vp').backgroundColor('#f5f5f5').borderRadius('24vp')
+              .width('100%').height('48vp').fontSize('16fp').fontWeight(FontWeight.Medium)
+              .fontColor('#ffffff').backgroundColor('#111827').borderRadius('8vp')
+          }.width('100%').padding('18vp').border({ width: '1vp', color: '#e2e8f0' }).borderRadius('8vp')
 
-          Column({ space: '8vp' }) {
-            Text('对话状态').fontSize('12fp').fontWeight(FontWeight.Bold).fontColor('#707072').width('100%')
-            Text(this.status).fontSize('18fp').fontWeight(FontWeight.Bold).fontColor('#111111').width('100%')
-            Text('当前对话服务使用 6001 端口。').fontSize('13fp').fontColor('#707072').width('100%')
-          }
-          .width('100%').padding('18vp').backgroundColor('#f5f5f5').borderRadius('24vp')
-        }
-        .width('100%').padding({ left: '20vp', right: '20vp', bottom: '36vp' })
-      }.layoutWeight(1).width('100%').scrollBar(BarState.Auto)
-    }
-    .width('100%').height('100%').backgroundColor('#ffffff')
+          Column({ space: '6vp' }) {
+            Text('对话状态').fontSize('13fp').fontWeight(FontWeight.Bold).fontColor('#64748b').width('100%')
+            Text(this.status).fontSize('16fp').fontColor('#111111').width('100%')
+          }.width('100%').padding('16vp').backgroundColor('#f8fafc').borderRadius('8vp')
+        }.width('100%').padding({ left: '20vp', right: '20vp', bottom: '28vp' })
+      }.width('100%').layoutWeight(1).scrollBar(BarState.Auto)
+    }.width('100%').height('100%').backgroundColor('#ffffff')
   }
 }

@@ -3,6 +3,7 @@ import promptAction from '@ohos.promptAction';
 import http from '@ohos.net.http';
 import { carApi } from '../CarUtill/CarApi';
 import { CarEncode } from '../CarUtill/CarEncode';
+import { CarDirection } from '../CarUtill/CarEnum';
 import { TCPClientManager } from '../tcp/TCPClientManager';
 import { PreferencesUtils } from '../utils/PreferencesUtils';
 
@@ -22,13 +23,18 @@ struct MusicPlayer {
   @State currentTime: string = '00:00';
   @State audioFiles: AudioFile[] = [];
   @State hasAudioServer: boolean = false;
-  @State statusText: string = '检测中...';
+  @State statusText: string = '妫€娴嬩腑...';
   @State isConnected: boolean = false;
   private playTimer: number = -1;
   private elapsed: number = 0;
+  @State danceMode: boolean = false;
+  @State bpm: number = 120;
+  private danceTimer: number = -1;
+  private danceStopTimer: number = -1;
+  private danceStep: number = 0;
 
-  // 蜂鸣器后备曲目
-  private beepTracks: string[] = ['音乐1', '音乐2', '音乐3', '音乐4', '音乐5', '音乐6', '音乐7', '音乐8'];
+  // 铚傞福鍣ㄥ悗澶囨洸鐩?
+  private beepTracks: string[] = ['闊充箰1', '闊充箰2', '闊充箰3', '闊充箰4', '闊充箰5', '闊充箰6', '闊充箰7', '闊充箰8'];
   private beepPatterns: number[][] = [
     [200, 200, 6], [500, 100, 4], [300, 800, 3], [150, 100, 8],
     [2000, 0, 1], [100, 150, 3], [400, 600, 5], [100, 100, 10],
@@ -90,17 +96,17 @@ struct MusicPlayer {
       }
     }
     this.hasAudioServer = false;
-    this.statusText = '无音频';
+    this.statusText = '无音频服务';
   }
 
   build() {
     Column() {
       Row({ space: '8vp' }) {
-        Button('← 返回')
+        Button('鈫?杩斿洖')
           .fontSize('12fp').fontColor('#ffffff').backgroundColor('#1a1a1a')
           .borderRadius('6vp').padding({ left: '10vp', right: '10vp', top: '6vp', bottom: '6vp' })
           .onClick(() => { this.stopAll(); router.back(); })
-        Text('音乐播放').fontSize('15fp').fontWeight(FontWeight.Bold).fontColor('#111111')
+        Text('闊充箰鎾斁').fontSize('15fp').fontWeight(FontWeight.Bold).fontColor('#111111')
         Blank()
         Text(this.statusText).fontSize('10fp').fontColor('#999999').maxLines(1)
       }
@@ -153,17 +159,33 @@ struct MusicPlayer {
             Button('>|').fontSize('16fp').fontColor('#666').backgroundColor('#f1f1f1')
               .borderRadius('8vp').width('52vp').height('44vp').onClick(() => { this.nextTrack(); })
           }.justifyContent(FlexAlign.Center)
+
+          Row({ space: '8vp' }) {
+            Text('节奏跳舞').fontSize('12fp').fontWeight(FontWeight.Medium).fontColor('#333333')
+            Slider({ value: this.bpm, min: 80, max: 160, step: 10, style: SliderStyle.InSet })
+              .layoutWeight(1)
+              .onChange((value: number) => {
+                this.bpm = value;
+                if (this.danceMode) { this.stopDance(); this.startDance(); }
+              })
+            Text(`${this.bpm} BPM`).fontSize('10fp').fontColor('#666666')
+            Button(this.danceMode ? '停止跳舞' : '开始跳舞')
+              .fontSize('12fp').fontColor('#ffffff')
+              .backgroundColor(this.danceMode ? '#b91c1c' : '#0f766e')
+              .borderRadius('6vp').height('36vp')
+              .onClick(() => { this.danceMode ? this.stopDance() : this.startDance(); })
+          }.width('100%').padding('8vp').backgroundColor('#f8fafc').borderRadius('8vp')
         }
         .width('0vp').layoutWeight(5.5).padding('8vp')
         .backgroundColor('#ffffff').borderRadius('12vp').border({ width: '1vp', color: '#e5e5e5' })
 
         Column({ space: '4vp' }) {
-          Text('播放列表').fontSize('11fp').fontWeight(FontWeight.Medium).fontColor('#999999').width('100%')
+          Text('鎾斁鍒楄〃').fontSize('11fp').fontWeight(FontWeight.Medium).fontColor('#999999').width('100%')
           Row({ space: '5vp' }) {
-            Button('刷新').fontSize('10fp').fontColor('#666').backgroundColor('#f1f1f1')
+            Button('鍒锋柊').fontSize('10fp').fontColor('#666').backgroundColor('#f1f1f1')
               .borderRadius('4vp').height('28vp').padding({ left: '8vp', right: '8vp' })
               .onClick(() => { this.detectAudioServer(); })
-            Button('停止').fontSize('10fp').fontColor('#666').backgroundColor('#f1f1f1')
+            Button('鍋滄').fontSize('10fp').fontColor('#666').backgroundColor('#f1f1f1')
               .borderRadius('4vp').height('28vp').padding({ left: '8vp', right: '8vp' })
               .onClick(() => { this.stopAll(); })
           }
@@ -223,7 +245,7 @@ struct MusicPlayer {
   // Show name WITHOUT .wav in the cover/display
   getTrackName(): string {
     const list: string[] = this.getTrackList();
-    return this.currentTrack < list.length ? this.displayName(list[this.currentTrack]) : '无';
+    return this.currentTrack < list.length ? this.displayName(list[this.currentTrack]) : '无曲目';
   }
 
   togglePlay(): void { if (this.isPlaying) { this.pause(); } else { this.play(); } }
@@ -235,7 +257,7 @@ struct MusicPlayer {
     } else if (this.isConnected) {
       this.startBeep(this.currentTrack);
     } else {
-      promptAction.showToast({ message: '请先连接小车' });
+      promptAction.showToast({ message: '璇峰厛杩炴帴灏忚溅' });
       return;
     }
     this.isPlaying = true;
@@ -244,6 +266,7 @@ struct MusicPlayer {
   }
 
   pause(): void {
+    this.stopDance();
     this.isPlaying = false;
     if (this.hasAudioServer) { this.callAudioApi('/audio/stop'); }
     carApi.send(CarEncode.BuzzerEncode(false));
@@ -251,6 +274,7 @@ struct MusicPlayer {
   }
 
   stopAll(): void {
+    this.stopDance();
     this.isPlaying = false; this.elapsed = 0; this.currentTime = '00:00';
     this.stopTimer();
     if (this.hasAudioServer) { this.callAudioApi('/audio/stop'); }
@@ -280,6 +304,39 @@ struct MusicPlayer {
     if (this.hasAudioServer) { this.callAudioApi(`/audio/volume?level=${v}`); }
   }
 
+  private startDance(): void {
+    if (!this.isConnected) {
+      promptAction.showToast({ message: '请先连接小车' });
+      return;
+    }
+    if (!this.isPlaying) {
+      this.play();
+      if (!this.isPlaying) { return; }
+    }
+    this.stopDance();
+    this.danceMode = true;
+    this.danceStep = 0;
+    const pattern: CarDirection[] = [CarDirection.Front, CarDirection.Left, CarDirection.After, CarDirection.Right];
+    const beatMs: number = Math.round(60000 / this.bpm);
+    const move = (): void => {
+      if (!this.danceMode) { return; }
+      carApi.send(CarEncode.ButtonCarEncode(pattern[this.danceStep % pattern.length]));
+      this.danceStep++;
+      if (this.danceStopTimer !== -1) { clearTimeout(this.danceStopTimer); }
+      this.danceStopTimer = setTimeout(() => {
+        carApi.send(CarEncode.ButtonCarEncode(CarDirection.Stop));
+      }, Math.round(beatMs * 0.55));
+    };
+    move();
+    this.danceTimer = setInterval(move, beatMs);
+  }
+
+  private stopDance(): void {
+    this.danceMode = false;
+    if (this.danceTimer !== -1) { clearInterval(this.danceTimer); this.danceTimer = -1; }
+    if (this.danceStopTimer !== -1) { clearTimeout(this.danceStopTimer); this.danceStopTimer = -1; }
+    carApi.send(CarEncode.ButtonCarEncode(CarDirection.Stop));
+  }
   startTimer(): void {
     this.stopTimer();
     this.playTimer = setInterval(() => {
