@@ -46,6 +46,8 @@ struct FallDetection {
   async initPage(): Promise<void> {
     this.carIp = await PreferencesUtils.getInstance().netUtils.getIP() as string;
     this.serviceBaseUrl = `http://${this.carIp}:5000`;
+    // 优先从本地加载紧急邮箱，避免后端不可用时邮箱为空
+    await this.loadLocalEmergencyEmail();
     this.isConnected = await TCPClientManager.getInstance().isConnect();
     if (this.isConnected) {
       await this.getStatus();
@@ -307,9 +309,26 @@ struct FallDetection {
   }
 
   // ===== 紧急联系人 + GPS + 邮件 =====
+  private async loadLocalEmergencyEmail(): Promise<void> {
+    // 优先从本地读取紧急邮箱（NetworkSettings 页面保存的）
+    let localEmail: string = await PreferencesUtils.getInstance().netUtils.getEmergencyEmail();
+    if (localEmail && localEmail.length > 0) {
+      this.emergencyEmail = localEmail;
+    }
+  }
+
   private async loadEmergencyConfig(): Promise<void> {
+    // 从后端同步邮箱（可能比本地更新），失败时保留本地值
     let result = await this.callService(http.RequestMethod.GET, '/emergency/config');
-    try { let d = JSON.parse(result) as Record<string, Object>; this.emergencyEmail = (d['email'] as string) || ''; } catch { /* */ }
+    try {
+      let d = JSON.parse(result) as Record<string, Object>;
+      let backendEmail: string = (d['email'] as string) || '';
+      if (backendEmail && backendEmail.length > 0) {
+        this.emergencyEmail = backendEmail;
+        // 同步到本地
+        await PreferencesUtils.getInstance().netUtils.setEmergencyEmail(backendEmail);
+      }
+    } catch { /* 后端不可用时保留本地邮箱 */ }
   }
 
   private async reverseGeocode(lat: number, lng: number): Promise<string> {
@@ -344,10 +363,17 @@ struct FallDetection {
   private async sendEmergencyNotification(): Promise<void> {
     await this.loadEmergencyConfig();
     if (!this.emergencyEmail) {
+      // 后端没有邮箱，尝试从本地读取
+      await this.loadLocalEmergencyEmail();
+    }
+    if (!this.emergencyEmail) {
       this.emailStatus = '⚠ 未设置紧急邮箱';
       promptAction.showToast({ message: '请先在网络设置中配置紧急邮箱' });
       return;
     }
+    // 确保邮箱同步到后端
+    let emailPayload: Record<string, Object> = { 'email': this.emergencyEmail };
+    await this.callService(http.RequestMethod.POST, '/emergency/config', emailPayload);
     this.emailStatus = '📧 正在获取GPS并发送邮件...';
     this.gpsLocation = '';
     let loc = await this.getCurrentLocation();
