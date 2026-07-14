@@ -42,6 +42,7 @@ struct MusicPlayer {
   private danceRound: number = 0;
   private danceMaxRounds: number = 0;
   private dancePlan: DanceAction[] = [];
+  private preferredFirstTrack: string = '纯情蟑螂火辣辣.wav';
 
   // 铚傞福鍣ㄥ悗澶囨洸鐩?
   private beepTracks: string[] = ['闊充箰1', '闊充箰2', '闊充箰3', '闊充箰4', '闊充箰5', '闊充箰6', '闊充箰7', '闊充箰8'];
@@ -251,11 +252,24 @@ struct MusicPlayer {
         if (raw.startsWith('test_')) { continue; }
         names.push(raw);  // Keep full filename with .wav extension
       }
-      if (names.length > 0) { return names; }
+      if (names.length > 0) { return this.putPreferredTrackFirst(names); }
     }
     return this.beepTracks;
   }
 
+  private putPreferredTrackFirst(names: string[]): string[] {
+    const preferred: string = this.preferredFirstTrack;
+    for (let i: number = 0; i < names.length; i++) {
+      if (names[i] === preferred) {
+        if (i > 0) {
+          names.splice(i, 1);
+          names.unshift(preferred);
+        }
+        break;
+      }
+    }
+    return names;
+  }
   // Show name WITHOUT .wav in the cover/display
   getTrackName(): string {
     const list: string[] = this.getTrackList();
