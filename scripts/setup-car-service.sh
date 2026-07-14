@@ -5,10 +5,11 @@ set -euo pipefail
 # Optional environment variables: CAR_DEPLOY_DIR, ROS_SETUP, TCP_ROS_PORT.
 
 REPO_DIR="${CAR_DEPLOY_DIR:-$HOME/zihan-car}"
-ROS_SETUP="${ROS_SETUP:-/opt/ros/noetic/setup.bash}"
+ROS_SETUP="${ROS_SETUP:-/opt/ros/foxy/setup.bash}"
 TCP_ROS_PORT="${TCP_ROS_PORT:-6001}"
 RUNNER_USER="$(id -un)"
 SYSTEMCTL="$(command -v systemctl)"
+INSTALL="$(command -v install)"
 
 sudo install -d -m 0755 /etc/zihan-car
 sudo tee /etc/zihan-car/bridge.env >/dev/null <<EOF
@@ -20,11 +21,11 @@ EOF
 sudo install -m 0644 systemd/tcp-ros-bridge.service /etc/systemd/system/tcp-ros-bridge.service
 sudo install -m 0644 systemd/voice-assistant.service /etc/systemd/system/voice-assistant.service
 sudo tee /etc/sudoers.d/zihan-car-runner >/dev/null <<EOF
-$RUNNER_USER ALL=(root) NOPASSWD: $SYSTEMCTL restart tcp-ros-bridge.service, $SYSTEMCTL is-active tcp-ros-bridge.service, $SYSTEMCTL restart voice-assistant.service, $SYSTEMCTL is-active voice-assistant.service, $SYSTEMCTL is-enabled voice-assistant.service
+$RUNNER_USER ALL=(root) NOPASSWD: $SYSTEMCTL daemon-reload, $SYSTEMCTL restart tcp-ros-bridge.service, $SYSTEMCTL is-active tcp-ros-bridge.service, $SYSTEMCTL restart voice-assistant.service, $SYSTEMCTL is-active voice-assistant.service, $SYSTEMCTL is-enabled voice-assistant.service, $SYSTEMCTL enable voice-assistant.service, $INSTALL -m 0644 $REPO_DIR/systemd/tcp-ros-bridge.service /etc/systemd/system/tcp-ros-bridge.service, $INSTALL -m 0644 $REPO_DIR/systemd/voice-assistant.service /etc/systemd/system/voice-assistant.service
 EOF
 sudo chmod 0440 /etc/sudoers.d/zihan-car-runner
 sudo visudo -cf /etc/sudoers.d/zihan-car-runner
 sudo systemctl daemon-reload
 sudo systemctl enable tcp-ros-bridge.service
 
-echo "Car bridge configured. Enable voice-assistant.service after installing its audio and Vosk dependencies."
+echo "Car bridge configured for dialogue port $TCP_ROS_PORT. The 6000 control service is checked by deploy-car.sh and can be restarted via CAR_CONTROL_SERVICE."

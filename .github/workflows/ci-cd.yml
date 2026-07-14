@@ -38,14 +38,24 @@ jobs:
           node --check hvigor/hvigor-wrapper.js
           node scripts/check-arkts-syntax.mjs
 
+
+  validate-deployment:
+    name: Validate deployment scripts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check deployment shell syntax
+        run: bash -n scripts/deploy-car.sh scripts/setup-car-service.sh
+
   deploy-car:
-    name: Deploy ROS bridge to car
-    needs: [validate-ros-bridge, validate-harmony-app]
+    name: Deploy car services
+    needs: [validate-ros-bridge, validate-harmony-app, validate-deployment]
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     runs-on: [self-hosted, linux, car]
     environment: car-production
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Deploy and restart ROS bridge
+      - name: Deploy and restart car services
         run: bash scripts/deploy-car.sh
