@@ -90,12 +90,6 @@ export struct MapCanvas {
 
       // Canvas 地图
       Stack() {
-        // 默认背景图：无栅格数据时显示
-        Image($rawfile('yahboomcar.png'))
-          .width('100%').height('100%')
-          .objectFit(ImageFit.Contain)
-          .visibility(this.gridData && this.gridData.data && this.gridData.data.length > 0 ? Visibility.Hidden : Visibility.Visible)
-
         Canvas(this.ctx)
           .width('100%').height('100%')
           .backgroundColor('#1a1a2e')

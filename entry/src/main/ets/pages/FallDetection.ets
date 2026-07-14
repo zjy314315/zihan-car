@@ -346,50 +346,18 @@ struct FallDetection {
   }
 
   private async getCurrentLocation(): Promise<Record<string, Object>> {
-    // 优先使用 GPS 定位
     try {
       let location = await geoLocationManager.getCurrentLocation();
       let lat: number = location.latitude;
       let lng: number = location.longitude;
-      if (lat !== 0 || lng !== 0) {
-        let address = await this.reverseGeocode(lat, lng);
-        return { 'latitude': lat, 'longitude': lng, 'address': address || `${lat.toFixed(4)}, ${lng.toFixed(4)}`, 'success': true };
+      if (lat === 0 && lng === 0) {
+        return { 'latitude': 0, 'longitude': 0, 'address': '', 'success': false };
       }
+      let address = await this.reverseGeocode(lat, lng);
+      return { 'latitude': lat, 'longitude': lng, 'address': address || `${lat.toFixed(4)}, ${lng.toFixed(4)}`, 'success': true };
     } catch (e) {
-      console.error('GPS定位失败:', JSON.stringify(e));
+      return { 'latitude': 0, 'longitude': 0, 'address': '', 'success': false };
     }
-    // GPS 失败，尝试 IP 定位
-    let ipResult = await this.getLocationByIp();
-    if (ipResult['success']) {
-      return ipResult;
-    }
-    return { 'latitude': 0, 'longitude': 0, 'address': '', 'success': false };
-  }
-
-  // AMap IP 定位（不需要 GPS 权限，基于手机公网 IP）
-  private async getLocationByIp(): Promise<Record<string, Object>> {
-    try {
-      let url = `https://restapi.amap.com/v3/ip?key=${AMAP_KEY}`;
-      let result = await this.callService(http.RequestMethod.GET, '', undefined, url);
-      let data = JSON.parse(result) as Record<string, Object>;
-      if (data['status'] === '1') {
-        let province: string = (data['province'] as string) || '';
-        let city: string = (data['city'] as string) || '';
-        let adcode: string = (data['adcode'] as string) || '';
-        let rectangle: string = (data['rectangle'] as string) || '';
-        // rectangle格式: "116.0119343,39.66127144;116.7829835,40.2164962"
-        let coords: string[] = rectangle.split(';')[0].split(',');
-        let lng: number = parseFloat(coords[0]) || 0;
-        let lat: number = parseFloat(coords[1]) || 0;
-        let address: string = [province, city].filter(Boolean).join('');
-        if (address) {
-          return { 'latitude': lat, 'longitude': lng, 'address': address, 'success': true, 'source': 'ip' };
-        }
-      }
-    } catch (e) {
-      console.error('IP定位失败:', JSON.stringify(e));
-    }
-    return { 'latitude': 0, 'longitude': 0, 'address': '', 'success': false };
   }
 
   private async sendEmergencyNotification(): Promise<void> {
@@ -406,19 +374,15 @@ struct FallDetection {
     // 确保邮箱同步到后端
     let emailPayload: Record<string, Object> = { 'email': this.emergencyEmail };
     await this.callService(http.RequestMethod.POST, '/emergency/config', emailPayload);
-    this.emailStatus = '📧 正在获取位置并发送邮件...';
+    this.emailStatus = '📧 正在获取GPS并发送邮件...';
     this.gpsLocation = '';
     let loc = await this.getCurrentLocation();
-    let address: string = '';
     if (loc['success'] === false) {
-      this.emailStatus = '⚠ 定位失败，使用默认坐标发送';
-      this.gpsLocation = '定位未获取到';
-      address = '定位未获取到';
-    } else {
-      let src: string = loc['source'] === 'ip' ? '(IP定位)' : '(GPS定位)';
-      address = (loc['address'] as string) || '未获取到地址';
-      this.gpsLocation = address + src;
+      this.emailStatus = '⚠ GPS获取失败，使用坐标发送';
+      this.gpsLocation = 'GPS未获取到';
     }
+    let address: string = (loc['address'] as string) || '未获取到地址';
+    this.gpsLocation = address;
     let payload: Record<string, Object> = {
       'email': this.emergencyEmail,
       'latitude': loc['latitude'],
