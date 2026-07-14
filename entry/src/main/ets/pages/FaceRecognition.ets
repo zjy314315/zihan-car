@@ -21,9 +21,10 @@ struct FaceRecognition {
   @State isRecognizing: boolean = false;
   @State faceLabel: string = '暂无结果';
   @State carIp: string = '';
+  private refreshTimer: number = -1;
 
   aboutToAppear(): void { this.initPage(); }
-  aboutToDisappear(): void { }
+  aboutToDisappear(): void { this.stopAutoRefresh(); this.stopRecognize(); }
 
   async initPage(): Promise<void> {
     this.carIp = await PreferencesUtils.getInstance().netUtils.getIP() as string;
@@ -122,6 +123,15 @@ struct FaceRecognition {
     await new Promise<void>((resolve) => { setTimeout(() => resolve(), ms); });
   }
 
+  private startAutoRefresh(): void {
+    if (this.refreshTimer >= 0) return;
+    this.refreshTimer = setInterval(() => { this.getResult(); }, 2000);
+  }
+
+  private stopAutoRefresh(): void {
+    if (this.refreshTimer >= 0) { clearInterval(this.refreshTimer); this.refreshTimer = -1; }
+  }
+
   private async startRecognize(): Promise<void> {
     this.statusText = '正在启动...';
     const result = await this.callService(http.RequestMethod.POST, '/start');
@@ -129,12 +139,14 @@ struct FaceRecognition {
     if (!result.includes('失败')) {
       this.isRecognizing = true; this.statusText = '识别运行中';
       promptAction.showToast({ message: '人脸识别已启动' });
+      this.startAutoRefresh();
       await this.getResult();
     } else { this.statusText = '启动失败'; promptAction.showToast({ message: '启动失败' }); }
   }
   private async stopRecognize(): Promise<void> {
-    const result = await this.callService(http.RequestMethod.POST, '/stop');
-    this.resultText = result; this.isRecognizing = false;
+    this.stopAutoRefresh();
+    try { await this.callService(http.RequestMethod.POST, '/stop'); } catch { /* */ }
+    this.isRecognizing = false;
     this.faceLabel = '已停止'; this.statusText = '已停止';
     promptAction.showToast({ message: '已停止' });
   }

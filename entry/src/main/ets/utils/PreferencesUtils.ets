@@ -105,5 +105,17 @@ export class NetInfoPreferencesUtils {
     await this.waitInit();
     return this.pref.get(NetInfoPreferencesUtils.KEY_VIDEO_PORT, '5000')
   }
+
+  async getEmergencyEmail(): Promise<string> {
+    await this.waitInit();
+    let v: string = await this.pref.get('emergency_email', '') as string;
+    return v;
+  }
+
+  async setEmergencyEmail(email: string): Promise<void> {
+    await this.waitInit();
+    this.pref.put('emergency_email', email);
+    this.pref.flush();
+  }
 }
 

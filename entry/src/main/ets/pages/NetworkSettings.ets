@@ -3,6 +3,7 @@ import { TCPClientSendUtils } from '../tcp/TCPClientSendUtils'
 import promptAction from '@ohos.promptAction'
 import router from '@ohos.router'
 import socket from '@ohos.net.socket'
+import http from '@ohos.net.http'
 import { PreferencesUtils } from '../utils/PreferencesUtils'
 import { VideoComponents } from '../components/VideoComponents'
 import { MyUtils } from '../utils/MyUtils'
@@ -195,25 +196,56 @@ struct LoginComponent {
   @State ip: string = '10.168.202.242'
   @State tcpPort: string = '6000'
   @State videoPort: string = '5000'
+  @State emergencyEmail: string = ''
+  @State emailSaved: boolean = false
   connectSuccessRun: () => void = () => {}
   connectfailRun: () => void = () => {}
 
-  aboutToAppear(): void { this.readNetConfig() }
+  aboutToAppear(): void {
+    this.readNetConfig()
+    this.readEmergencyEmail()
+  }
 
   build() {
-    Column({ space: '14vp' }) {
-      NetworkField({ label: '车辆 IP 地址', value: $ip })
-      NetworkField({ label: 'TCP 端口', value: $tcpPort })
-      NetworkField({ label: '视频端口', value: $videoPort })
-      Button('连接小车')
-        .width('100%').height('52vp').fontSize('16fp').fontWeight(FontWeight.Medium)
-        .fontColor('#ffffff').backgroundColor('#111111').borderRadius('28vp')
-        .onClick(() => {
-          this.saveNetConfig()
-          this.initTcpConfig()
-          VideoComponents.ip = this.ip
-          VideoComponents.port = Number.parseInt(this.videoPort)
-        })
+    Column({ space: '16vp' }) {
+      // 连接设置
+      Column({ space: '12vp' }) {
+        Text('🔌 连接设置').fontSize('17fp').fontWeight(FontWeight.Bold).fontColor('#111111').width('100%')
+        NetworkField({ label: '车辆 IP 地址', value: $ip })
+        NetworkField({ label: 'TCP 控制端口', value: $tcpPort })
+        NetworkField({ label: '视频流端口', value: $videoPort })
+        Button('连接小车')
+          .width('100%').height('52vp').fontSize('16fp').fontWeight(FontWeight.Medium)
+          .fontColor('#ffffff').backgroundColor('#111111').borderRadius('28vp')
+          .onClick(() => {
+            this.saveNetConfig()
+            VideoComponents.ip = this.ip
+            VideoComponents.port = Number.parseInt(this.videoPort)
+            this.initTcpConfig()
+          })
+      }.width('100%').padding('16vp').backgroundColor('#f5f5f5').borderRadius('18vp')
+
+      // 紧急联系人
+      Column({ space: '10vp' }) {
+        Text('📧 紧急联系人').fontSize('17fp').fontWeight(FontWeight.Bold).fontColor('#111111').width('100%')
+        Text('摔倒时自动获取手机GPS位置，发送邮件通知').fontSize('12fp').fontColor('#888888').width('100%')
+        NetworkField({ label: '通知邮箱', value: $emergencyEmail })
+        Row({ space: '8vp' }) {
+          Button('保存邮箱')
+            .layoutWeight(1).height('44vp').fontSize('15fp').fontWeight(FontWeight.Medium)
+            .fontColor('#ffffff').backgroundColor('#dc2626').borderRadius('22vp')
+            .onClick(() => { this.saveEmergencyEmail() })
+          Button('发送测试')
+            .layoutWeight(1).height('44vp').fontSize('15fp').fontWeight(FontWeight.Medium)
+            .fontColor('#dc2626').backgroundColor('#ffffff')
+            .border({ width: '1.5vp', color: '#dc2626' }).borderRadius('22vp')
+            .onClick(() => { this.sendTestEmail() })
+        }.width('100%')
+        if (this.emailSaved) {
+          Text('✅ 已保存，测试邮件发送成功后即可使用').fontSize('12fp').fontColor('#22c55e').width('100%')
+        }
+      }.width('100%').padding('16vp').backgroundColor('#fef2f2')
+        .border({ width: '1vp', color: '#fecaca' }).borderRadius('18vp')
     }.width('100%')
   }
 
@@ -235,6 +267,61 @@ struct LoginComponent {
     PreferencesUtils.getInstance().netUtils.getIP().then((v) => { this.ip = v as string })
     PreferencesUtils.getInstance().netUtils.getTcpPort().then((v) => { this.tcpPort = v as string })
     PreferencesUtils.getInstance().netUtils.getVideoPort().then((v) => { this.videoPort = v as string })
+  }
+
+  private async readEmergencyEmail(): Promise<void> {
+    let v: string = await PreferencesUtils.getInstance().netUtils.getEmergencyEmail();
+    this.emergencyEmail = v;
+    this.emailSaved = v.length > 0;
+  }
+
+  private async saveEmergencyEmail(): Promise<void> {
+    let email: string = this.emergencyEmail.trim();
+    await PreferencesUtils.getInstance().netUtils.setEmergencyEmail(email);
+    this.emailSaved = email.length > 0;
+    let httpRequest = http.createHttp();
+    let url: string = 'http://' + this.ip + ':5000/emergency/config';
+    httpRequest.request(url, {
+      method: http.RequestMethod.POST,
+      header: { 'Content-Type': 'application/json' },
+      expectDataType: http.HttpDataType.STRING,
+      connectTimeout: 3000, readTimeout: 3000,
+      extraData: JSON.stringify({ email: email })
+    }, () => { httpRequest.destroy(); });
+    promptAction.showToast({ message: email ? '紧急邮箱已保存' : '邮箱已清除' });
+  }
+
+  private async sendTestEmail(): Promise<void> {
+    let email: string = this.emergencyEmail.trim();
+    if (!email) {
+      promptAction.showToast({ message: '请先输入并保存邮箱地址' });
+      return;
+    }
+    promptAction.showToast({ message: '正在发送测试邮件...' });
+    let httpRequest = http.createHttp();
+    let url: string = 'http://' + this.ip + ':5000/emergency/notify';
+    let payload: string = JSON.stringify({
+      email: email,
+      latitude: 30.2741,
+      longitude: 120.1551,
+      address: '【测试邮件】浙江省杭州市'
+    });
+    let resp: string = await new Promise<string>((resolve: Function, reject: Function) => {
+      httpRequest.request(url, {
+        method: http.RequestMethod.POST,
+        header: { 'Content-Type': 'application/json' },
+        expectDataType: http.HttpDataType.STRING,
+        connectTimeout: 15000, readTimeout: 15000,
+        extraData: payload
+      }, (err: Object, data: http.HttpResponse) => { err ? reject(err) : resolve(data.result as string); });
+    });
+    httpRequest.destroy();
+    let result: Record<string, Object> = JSON.parse(resp) as Record<string, Object>;
+    if (result['status'] === 'sent') {
+      promptAction.showToast({ message: '测试邮件已发送，请检查收件箱' });
+    } else {
+      promptAction.showToast({ message: '发送失败：' + (result['message'] as string || '未知错误') });
+    }
   }
 
   private async saveNetConfig(): Promise<void> {

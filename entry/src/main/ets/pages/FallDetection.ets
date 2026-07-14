@@ -35,7 +35,8 @@ struct FallDetection {
   @State alarmFlash: boolean = false;
   @State buzzerSeconds: number = 0;
   @State emergencyEmail: string = '';
-  @State emailSending: boolean = false;
+  @State emailStatus: string = '';
+  @State gpsLocation: string = '';
   private autoRefreshTimer: number = -1;
   private buzzerTimer: number = -1;
 
@@ -88,6 +89,12 @@ struct FallDetection {
           if (this.buzzerSeconds > 0) {
             Text(`🔊 蜂鸣器报警中... ${this.buzzerSeconds}s`).fontSize('11fp').fontColor('#fbbf24').margin({ top: '3vp' })
           }
+          if (this.emailStatus) {
+            Text(this.emailStatus).fontSize('11fp').fontColor('#fbbf24').margin({ top: '3vp' })
+          }
+          if (this.gpsLocation) {
+            Text(`📍 ${this.gpsLocation}`).fontSize('10fp').fontColor('#fca5a5').maxLines(1).margin({ top: '3vp' })
+          }
         }
         .width('100%').padding({ top: '6vp', bottom: '6vp', left: '10vp', right: '10vp' })
         .backgroundColor(this.alarmFlash ? '#dc2626' : '#991b1b')
@@ -96,7 +103,6 @@ struct FallDetection {
 
       // ====== 主体 ======
       Row({ space: '8vp' }) {
-        // 左侧：视频
         Column({ space: '4vp' }) {
           VideoComponents({ showControls: false, videoWidth: '100%', videoHeight: '100%' })
             .borderRadius('10vp').layoutWeight(1)
@@ -104,7 +110,6 @@ struct FallDetection {
         .width('0vp').layoutWeight(5.5).padding('6vp')
         .backgroundColor('#fafafa').borderRadius('12vp').border({ width: '1vp', color: '#e5e5e5' })
 
-        // 右侧：面板
         Column({ space: '6vp' }) {
           Row() {
             Text(this.isFallAlarm ? '⚠ FALL DETECTED' : (this.isMonitoring ? '● MONITORING' : '○ STANDBY'))
@@ -206,6 +211,8 @@ struct FallDetection {
     this.isFallAlarm = false;
     this.fallDetail = '';
     this.buzzerSeconds = 0;
+    this.emailStatus = '';
+    this.gpsLocation = '';
     promptAction.showToast({ message: '已停止' });
   }
 
@@ -226,7 +233,7 @@ struct FallDetection {
     try {
       const data: StatusResponse = JSON.parse(result) as StatusResponse;
       this.isMonitoring = data.fall_enabled;
-      this.isRunning = data.running;
+      this.isRunning = data.running || data.fall_enabled || data.yolo_enabled;
       if (this.isMonitoring) { this.startAutoRefresh(); }
     } catch { /* */ }
     this.resultText = result;
@@ -251,7 +258,7 @@ struct FallDetection {
             this.fallStatus = '摔倒!';
             this.isFallAlarm = true;
             if (!prevAlarm) {
-              promptAction.showToast({ message: '检测到摔倒! 蜂鸣器已启动', duration: 3000 });
+              promptAction.showToast({ message: '检测到摔倒!', duration: 3000 });
               this.buzzerSeconds = 3;
               if (this.buzzerTimer >= 0) clearInterval(this.buzzerTimer);
               this.buzzerTimer = setInterval(() => {
@@ -306,6 +313,7 @@ struct FallDetection {
   }
 
   private async reverseGeocode(lat: number, lng: number): Promise<string> {
+    if (lat === 0 && lng === 0) return '';
     try {
       let url = `https://restapi.amap.com/v3/geocode/regeo?key=${AMAP_KEY}&location=${lng},${lat}&radius=50&extensions=base`;
       let result = await this.callService(http.RequestMethod.GET, '', undefined, url);
@@ -321,28 +329,53 @@ struct FallDetection {
   private async getCurrentLocation(): Promise<Record<string, Object>> {
     try {
       let location = await geoLocationManager.getCurrentLocation();
-      let address = await this.reverseGeocode(location.latitude, location.longitude);
-      return { 'latitude': location.latitude, 'longitude': location.longitude, 'address': address, 'success': true };
+      let lat: number = location.latitude;
+      let lng: number = location.longitude;
+      if (lat === 0 && lng === 0) {
+        return { 'latitude': 0, 'longitude': 0, 'address': '', 'success': false };
+      }
+      let address = await this.reverseGeocode(lat, lng);
+      return { 'latitude': lat, 'longitude': lng, 'address': address || `${lat.toFixed(4)}, ${lng.toFixed(4)}`, 'success': true };
     } catch (e) {
       return { 'latitude': 0, 'longitude': 0, 'address': '', 'success': false };
     }
   }
 
   private async sendEmergencyNotification(): Promise<void> {
-    if (!this.emergencyEmail) { return; }
-    this.emailSending = true;
+    await this.loadEmergencyConfig();
+    if (!this.emergencyEmail) {
+      this.emailStatus = '⚠ 未设置紧急邮箱';
+      promptAction.showToast({ message: '请先在网络设置中配置紧急邮箱' });
+      return;
+    }
+    this.emailStatus = '📧 正在获取GPS并发送邮件...';
+    this.gpsLocation = '';
     let loc = await this.getCurrentLocation();
-    let address = (loc['address'] as string) || 'GPS未获取到';
+    if (loc['success'] === false) {
+      this.emailStatus = '⚠ GPS获取失败，使用坐标发送';
+      this.gpsLocation = 'GPS未获取到';
+    }
+    let address: string = (loc['address'] as string) || '未获取到地址';
+    this.gpsLocation = address;
     let payload: Record<string, Object> = {
-      'email': this.emergencyEmail, 'latitude': loc['latitude'],
-      'longitude': loc['longitude'], 'address': address
+      'email': this.emergencyEmail,
+      'latitude': loc['latitude'],
+      'longitude': loc['longitude'],
+      'address': address
     };
     let result = await this.callService(http.RequestMethod.POST, '/emergency/notify', payload);
-    this.emailSending = false;
     try {
       let data = JSON.parse(result) as Record<string, Object>;
-      if (data['status'] === 'sent') { promptAction.showToast({ message: '已发送紧急邮件：' + address }); }
-    } catch { /* */ }
+      if (data['status'] === 'sent') {
+        this.emailStatus = '✅ 邮件已发送至 ' + this.emergencyEmail;
+        promptAction.showToast({ message: '紧急邮件已发送', duration: 3000 });
+      } else {
+        this.emailStatus = '❌ 发送失败: ' + (data['message'] as string || '');
+        promptAction.showToast({ message: '邮件发送失败' });
+      }
+    } catch {
+      this.emailStatus = '📧 邮件请求已提交';
+    }
   }
 }
 

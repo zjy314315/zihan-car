@@ -73,7 +73,6 @@ AUDIO_DIR = os.path.join(SCRIPT_DIR, "audio_files")
 KNOWN_FACES_FILE = os.path.join(SCRIPT_DIR, "known_faces.json")
 YOLO_MODEL = os.path.join(SCRIPT_DIR, "yolov8n.pt")
 
-CAMERA_DEVICE = "/dev/video0"
 FRAME_WIDTH = 480
 FRAME_HEIGHT = 360
 SERVICE_PORT = 5000
@@ -392,8 +391,8 @@ class AIService:
         hip_r = _safe_kp(kp, 12)
 
         # At least minimal visibility
-        shoulder_vis = (shoulder_l["conf"] > 0.3) or (shoulder_r["conf"] > 0.3)
-        hip_vis = (hip_l["conf"] > 0.3) or (hip_r["conf"] > 0.3)
+        shoulder_vis = (shoulder_l["conf"] > 0.2) or (shoulder_r["conf"] > 0.2)
+        hip_vis = (hip_l["conf"] > 0.2) or (hip_r["conf"] > 0.2)
 
         if not shoulder_vis or not hip_vis:
             return {"enabled": True, "status": "monitoring", "confidence": 0.0,
@@ -427,30 +426,30 @@ class AIService:
         # ---- Feature 4: Hip below shoulder (lying flat) ----
         hip_below_shoulder = hip_mid["y"] > shoulder_mid["y"]
 
-        # ===== SIMPLIFIED: any ONE condition = potential fall =====
-        is_standing = torso_angle_deg < 25 and height_width_ratio > 1.5 and not hip_below_shoulder
+        # ===== 宽松检测：任一条件满足即视为疑似摔倒 =====
+        is_standing = torso_angle_deg < 20 and height_width_ratio > 1.8 and not hip_below_shoulder
 
         trigger_count = 0
         triggers = []
 
-        if torso_angle_deg > 40:
+        if torso_angle_deg > 25:
             trigger_count += 1
-            triggers.append(f"angle={torso_angle_deg:.0f}°")
+            triggers.append("angle={:.0f}".format(torso_angle_deg))
 
-        if height_width_ratio < 1.3:
+        if height_width_ratio < 1.5:
             trigger_count += 1
-            triggers.append(f"hw={height_width_ratio:.2f}")
+            triggers.append("hw={:.2f}".format(height_width_ratio))
 
-        if shoulder_vel > 2.0:
+        if shoulder_vel > 1.0:
             trigger_count += 1
-            triggers.append(f"vel={shoulder_vel:.1f}")
+            triggers.append("vel={:.1f}".format(shoulder_vel))
 
         if hip_below_shoulder:
             trigger_count += 1
             triggers.append("hip_low")
 
         is_possible_fall = trigger_count >= 1
-        confidence = min(1.0, 0.4 + trigger_count * 0.2)
+        confidence = min(1.0, 0.5 + trigger_count * 0.15)
 
         # ---- State machine ----
         if is_possible_fall:
@@ -463,9 +462,9 @@ class AIService:
         self.fall_history_max = max(self.fall_history_max, self.fall_history)
         detail = "; ".join(triggers) if triggers else f"angle={torso_angle_deg:.0f}°"
 
-        # Confirm fall: only 2 frames needed, cooldown 15 frames
-        if self.fall_history >= 2 and self.fall_cooldown <= 0:
-            self.fall_cooldown = 15
+        # Confirm fall: 1 frame needed, cooldown 5 frames
+        if self.fall_history >= 1 and self.fall_cooldown <= 0:
+            self.fall_cooldown = 5
             event = {
                 "time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
                 "confidence": round(confidence, 3),
@@ -504,7 +503,8 @@ class AIService:
         return ('$' + code + format(checksum, '02X') + '#').encode('ascii')
 
     def _trigger_buzzer(self):
-        """摔倒时：蜂鸣器 ~2.5 秒"""
+        """摔倒时：蜂鸣器 + 播放警报音频"""
+        # 1) Try buzzer via TCP
         try:
             import socket as sock
             s_tmp = sock.socket(sock.AF_INET, sock.SOCK_DGRAM)
@@ -531,11 +531,26 @@ class AIService:
         except Exception as e:
             print(f"[Fall] Buzzer failed: {e}")
 
+        # 2) Play alert sound via speaker (more reliable than buzzer)
+        def _play_alert():
+            try:
+                import glob as _glob
+                audio_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "audio_files")
+                files = _glob.glob(os.path.join(audio_dir, "*.wav"))
+                if files:
+                    alert_file = files[0]  # Use first available audio file as alert
+                    print("[Fall] Playing alert: {}".format(os.path.basename(alert_file)))
+                    subprocess.run(["aplay", "-D", "plughw:0,0", alert_file],
+                                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+            except Exception as e:
+                print("[Fall] Alert sound failed: {}".format(e))
+        threading.Thread(target=_play_alert, daemon=True).start()
+
     # ---- Emergency email ----
     EMAIL_SMTP_HOST = "smtp.163.com"
     EMAIL_SMTP_PORT = 465
     EMAIL_SENDER = "15067859702@163.com"
-    EMAIL_PASSWORD = "JZaiHuzWyH2yfsPy"
+    EMAIL_PASSWORD = "VLwpeguUztLxgKwx"
 
     def send_notification_email(self, to_email: str, latitude: float, longitude: float,
                                  address: str = "") -> dict:
@@ -780,7 +795,7 @@ class AudioService:
 
 
 # ========== 视频：直连摄像头 → AI + MJPEG 推流 ==========
-CAMERA_DEV = "/dev/video1"
+CAMERA_DEV = "/dev/video0"
 CAMERA_W = 640
 CAMERA_H = 480
 CAMERA_FPS = 25
@@ -792,37 +807,21 @@ _jpeg_available = False
 
 
 def camera_loop(ai_service: AIService):
-    """主摄像头循环：捕获帧 → AI处理 + JPEG缓存
-    Jetson 上使用 V4L2 设备索引（/dev/video0 = idx 0, /dev/video1 = idx 1）。
-    当 /dev/video0 被 app.py 占用时，自动回退到 idx 1。
-    """
+    """主摄像头循环：捕获帧 → AI处理 + JPEG缓存"""
     global _latest_jpeg, _jpeg_available
     cap = None
 
-    # 优先尝试设备索引（比路径更可靠），先试 idx 1（/dev/video1），再试 idx 0
-    for idx in [1, 0]:
-        cap = cv2.VideoCapture(idx)
+    # Try /dev/video0 first, then fallback
+    for dev in [CAMERA_DEV, "/dev/video1", 0, 1]:
+        cap = cv2.VideoCapture(dev)
         if cap.isOpened():
-            print(f"[Camera] idx={idx} 已打开")
+            print(f"[Camera] {dev} 已打开")
             cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_W)
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_H)
             cap.set(cv2.CAP_PROP_FPS, CAMERA_FPS)
             break
         cap.release()
         cap = None
-
-    # 回退：尝试设备路径
-    if cap is None:
-        for dev in [CAMERA_DEV, "/dev/video0"]:
-            cap = cv2.VideoCapture(dev)
-            if cap.isOpened():
-                print(f"[Camera] {dev} 已打开")
-                cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_W)
-                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_H)
-                cap.set(cv2.CAP_PROP_FPS, CAMERA_FPS)
-                break
-            cap.release()
-            cap = None
 
     if cap is None or not cap.isOpened():
         print("[Camera] FATAL: 无法打开任何摄像头!")
